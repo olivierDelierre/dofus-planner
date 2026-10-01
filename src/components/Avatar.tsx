@@ -1,10 +1,10 @@
-import { classIcon } from "@/lib/assets";
+import { classIcon, gameImage } from "@/lib/assets";
 import { classColor, initials } from "@/lib/classes";
-import type { DofusbookProfile } from "@/lib/types";
+import type { CharacterProfile } from "@/lib/types";
 
-/** Visuel de classe : image DofusBook si disponible, sinon symbole officiel, sinon initiales sur la couleur de la classe. */
-export function Avatar({ profile, size }: { profile: DofusbookProfile; size?: "lg" }) {
-  const image = profile.classImage ?? classIcon(profile.className);
+/** Visuel du personnage : symbole de sa classe sur fond de couleur, avec sa tête en pastille. */
+export function Avatar({ profile, size }: { profile: CharacterProfile; size?: "lg" }) {
+  const image = gameImage(profile.classImage) ?? classIcon(profile.className);
   return (
     <div
       className={size === "lg" ? "avatar lg" : "avatar"}
@@ -13,9 +13,13 @@ export function Avatar({ profile, size }: { profile: DofusbookProfile; size?: "l
     >
       {image ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={image} alt="" loading="lazy" />
+        <img className="symbol" src={image} alt="" loading="lazy" />
       ) : (
         initials(profile.className)
+      )}
+      {size === "lg" && profile.headImage && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img className="head" src={gameImage(profile.headImage)} alt="" />
       )}
     </div>
   );

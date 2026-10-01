@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { elementIcon, statIcon } from "@/lib/assets";
+import { elementIcon, gameImage } from "@/lib/assets";
 import { elementClass } from "@/lib/classes";
-import type { Character } from "@/lib/types";
+import { type Character } from "@/lib/types";
 import { Avatar } from "./Avatar";
-
-// Caractéristiques mises en avant en tête de liste.
-const KEY_STATS = new Set(["pa", "pm", "pv", "po", "vitalite"]);
+import { CharacterEditor } from "./CharacterEditor";
+import { Paperdoll } from "./Paperdoll";
+import { StatsGrid } from "./StatsGrid";
 
 interface Props {
   character: Character;
@@ -15,14 +15,17 @@ interface Props {
   onChanged: () => Promise<void>;
 }
 
-/** Fiche personnage en lecture seule (données DofusBook) + notes et actions. */
+/** Fiche personnage : équipement, caractéristiques et sorts avec leurs icônes. */
 export function CharacterSheet({ character, onClose, onChanged }: Props) {
   const { profile: p } = character;
   const [notes, setNotes] = useState(character.notes ?? "");
   const [busy, setBusy] = useState<null | "refresh" | "notes" | "delete">(null);
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [detail, setDetail] = useState<string | null>(null);
 
   useEffect(() => {
+    if (editing) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
@@ -30,7 +33,7 @@ export function CharacterSheet({ character, onClose, onChanged }: Props) {
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = "";
     };
-  }, [onClose]);
+  }, [onClose, editing]);
 
   async function call(kind: NonNullable<typeof busy>, method: string, body?: unknown) {
     setBusy(kind);
@@ -51,7 +54,9 @@ export function CharacterSheet({ character, onClose, onChanged }: Props) {
     }
   }
 
-  const stats = [...p.stats].sort((a, b) => Number(KEY_STATS.has(b.key)) - Number(KEY_STATS.has(a.key)));
+  const bySlot = new Map(p.items.map((i) => [i.slot, i]));
+  const key = (k: string) => p.stats.find((s) => s.key === k)?.value;
+  const shownDetail = detail ? bySlot.get(detail) : undefined;
 
   return (
     <div className="sheet-backdrop" onClick={onClose}>
@@ -78,68 +83,88 @@ export function CharacterSheet({ character, onClose, onChanged }: Props) {
           </button>
         </div>
 
-        <h3>Équipement</h3>
-        {p.items.length === 0 ? (
-          <p className="muted">Aucun équipement.</p>
-        ) : (
-          <div className="slots">
-            {p.items.map((item, i) => (
-              <div className="slot" key={`${item.slot}-${i}`}>
-                {item.icon ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={item.icon} alt="" loading="lazy" />
-                ) : (
-                  <span className="ph">◆</span>
-                )}
-                <div className="label">
-                  <strong>{item.name}</strong>
-                  <span className="muted">
-                    {item.slot}
-                    {item.level ? ` · niv. ${item.level}` : ""}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <h3>Caractéristiques</h3>
-        <div className="stats">
-          {stats.map((s) => (
-            <div key={s.key} className={KEY_STATS.has(s.key) ? "stat key" : "stat"}>
-              <span className="muted">
-                {statIcon(s.key, s.label) && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img className="ico" src={statIcon(s.key, s.label)} alt="" />
-                )}
-                {s.label}
-              </span>
-              <span className="v">{s.value}</span>
+        <div className="vitals">
+          {(
+            [
+              ["pa", "PA", "actionPoints"],
+              ["pm", "PM", "movementPoints"],
+              ["pv", "PV", ""],
+              ["po", "PO", "range"],
+            ] as const
+          ).map(([k, label, icon]) => (
+            <div key={k} className="vital">
+              {icon && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={`/game/stats/${icon}.png`} alt="" />
+              )}
+              <b>{key(k) ?? 0}</b>
+              <span>{label}</span>
             </div>
           ))}
         </div>
 
+        <div className="cols">
+          <div>
+        <h3>Équipement</h3>
+        <Paperdoll
+          items={Object.fromEntries(p.items.map((i) => [i.slot, { name: i.name, icon: i.icon, level: i.level }]))}
+          className={p.className}
+          symbol={p.classImage}
+          head={p.headImage}
+          title={p.name}
+          subtitle={`${p.className} · niv. ${p.level}`}
+          selected={detail}
+          onSlot={(slot) => setDetail(detail === slot ? null : slot)}
+        />
+        {shownDetail && (
+          <div className="detail">
+            <strong>
+              {shownDetail.name}
+              {shownDetail.level ? ` · niv. ${shownDetail.level}` : ""}
+            </strong>
+            <ul>
+              {shownDetail.effects.map((e, i) => (
+                <li key={i}>{e}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+          </div>
+          <div>
+        <h3>Caractéristiques</h3>
+        <StatsGrid stats={p.stats} />
+
         {p.spells.length > 0 && (
           <>
             <h3>Sorts</h3>
-            <div className="slots">
-              {p.spells.map((s, i) => (
-                <div className="slot" key={`${s.name}-${i}`}>
-                  {s.icon ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={s.icon} alt="" loading="lazy" />
-                  ) : (
-                    <span className="ph">✦</span>
-                  )}
-                  <div className="label">
-                    <strong>{s.name}</strong>
-                    {s.level ? <span className="muted">niv. {s.level}</span> : null}
-                  </div>
-                </div>
+            <div className="spell-icons">
+              {p.spells.map((s) => (
+                <button key={s.id} className="spell-icon" title={s.description} onClick={() => setDetail(`spell:${s.id}`)}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={gameImage(s.icon)} alt={s.name} loading="lazy" />
+                  {s.level ? <b>{s.level}</b> : null}
+                  <span>{s.name}</span>
+                </button>
               ))}
             </div>
+            {detail?.startsWith("spell:") &&
+              (() => {
+                const s = p.spells.find((x) => `spell:${x.id}` === detail);
+                return s ? (
+                  <div className="detail">
+                    <strong>
+                      {s.name} {s.level ? `· niveau ${s.level}` : ""}
+                    </strong>
+                    <p>{s.description}</p>
+                  </div>
+                ) : null;
+              })()}
           </>
         )}
+
+          </div>
+        </div>
 
         <h3>Notes pour Claude</h3>
         <textarea
@@ -149,15 +174,18 @@ export function CharacterSheet({ character, onClose, onChanged }: Props) {
         />
         {error && <p className="error">{error}</p>}
         <div className="row" style={{ marginTop: 12 }}>
+          <button className="btn primary" disabled={busy !== null} onClick={() => setEditing(true)}>
+            ✎ Modifier
+          </button>
           <button
-            className="btn primary"
+            className="btn"
             disabled={busy !== null || notes === (character.notes ?? "")}
             onClick={() => call("notes", "PUT", { notes })}
           >
             Enregistrer les notes
           </button>
           <button className="btn" disabled={busy !== null} onClick={() => call("refresh", "PUT", { refresh: true })}>
-            {busy === "refresh" ? "Actualisation…" : "↻ Actualiser depuis DofusBook"}
+            {busy === "refresh" ? "Recalcul…" : "↻ Actualiser"}
           </button>
           <button
             className="btn ghost"
@@ -168,13 +196,10 @@ export function CharacterSheet({ character, onClose, onChanged }: Props) {
           </button>
         </div>
         <p className="muted">
-          Synchronisé le {new Date(p.fetchedAt).toLocaleString("fr-FR")} ·{" "}
-          <a href={character.dofusbookUrl} target="_blank" rel="noreferrer">
-            Ouvrir sur DofusBook
-          </a>
-          {character.owner ? ` · ajouté par ${character.owner}` : ""}
+          Données du jeu via DofusDB et DofusDude{character.owner ? ` · créé par ${character.owner}` : ""}
         </p>
       </div>
+      {editing && <CharacterEditor existing={character} onClose={() => setEditing(false)} onSaved={onChanged} />}
     </div>
   );
 }

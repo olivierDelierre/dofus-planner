@@ -22,9 +22,9 @@ Utilisateurs : le propriétaire du dépôt et sa femme, avec un profil chacun.
   - **équipe partagée** entre profils, **historique des plans privé** par profil ;
   - modèle Claude au choix dans l'UI : Opus 5.5 par défaut, Sonnet 5.5 en option ;
   - données : DofusDude pour le stuff, DofusDB pour les monstres et donjons, scraper Dofus pour les noobs ;
-  - personnages : **lien DofusBook uniquement**, fiche en lecture seule, synchro par un bouton « Actualiser » ;
+  - personnages : **créés dans l'app** (DofusBook est bloqué par Cloudflare) : classe, genre, niveau, points de base, un objet par emplacement, sorts avec niveaux ; caractéristiques calculées côté serveur ; données et icônes de DofusDB et DofusDude ;
   - fiche perso : équipements en grille, caractéristiques, illustration de classe, sorts ;
-  - design mobile-first, **thème sombre par défaut**.
+  - design mobile-first **et adapté au grand écran PC** (fiche et éditeur en deux colonnes), **thème sombre par défaut**.
 - Hébergement visé : Docker (`compose.yaml`).
 
 ## Commandes
@@ -49,7 +49,8 @@ Avant chaque commit : `npx tsc --noEmit && npm test && npx next build`.
 | `src/lib/score.ts` | Score de confiance de base, déterministe. Claude doit justifier tout écart |
 | `src/lib/dpln.ts` | Scraper Dofus pour les noobs : extraction générique HTML vers Markdown, liste blanche de domaines |
 | `src/lib/gamedata.ts` | DofusDude et DofusDB, avec JSON allégé pour Claude |
-| `src/lib/dofusbook.ts` | Import DofusBook (branche `refonte-mobile-dofusbook`) |
+| `src/lib/builder.ts` | Saisie du personnage vers fiche : résolution des objets, calcul des caractéristiques |
+| `src/lib/assets.ts` | Icônes locales (`public/game/`, via `scripts/fetch-assets.mjs`) et proxy d'images `/api/icon` |
 | `src/lib/storage.ts` | Fichiers JSON dans `DATA_DIR` : écriture atomique, `withLock` par fichier, cache des API |
 | `src/lib/auth.ts` | Profils (scrypt), cookie de session signé HMAC, anti-bruteforce en mémoire |
 | `src/lib/api.ts` | `authed()` enveloppe les routes qui exigent une session |
@@ -68,11 +69,11 @@ Données (`DATA_DIR`, par défaut `./data`, `/data` en Docker) : `profiles.json`
 - **`withLock` ne protège qu'au sein d'un seul processus.** Il ne faut pas lancer plusieurs instances sur le même `DATA_DIR`.
 - `next build` en mode `standalone` copie `data/` dans `.next/standalone`. Le `.dockerignore` exclut les fichiers sensibles.
 - Le cookie de session n'est `Secure` que si `COOKIE_SECURE=true`, car l'app est servie en HTTP sur le réseau local.
-- Toute URL externe saisie par un utilisateur doit passer par une **liste blanche de domaines** (voir `assertDplnUrl` et `assertDofusbookUrl`), pour éviter que le serveur aille chercher des adresses arbitraires.
+- Toute URL externe saisie par un utilisateur doit passer par une **liste blanche de domaines** (voir `assertDplnUrl` et la liste blanche de `/api/icon`), pour éviter que le serveur aille chercher des adresses arbitraires.
 
 ## Environnement cloud (sessions Claude Code sur le web)
 
-- Le réseau sortant est filtré. Domaines dont le projet a besoin : `dofusbook.net`, `*.dofusbook.net`, `d-bk.net`, `*.d-bk.net`, `api.dofusdb.fr`, `api.dofusdu.de`, `www.dofuspourlesnoobs.com`. S'ils sont bloqués (`curl` renvoie `000` ou 403), demande à l'utilisateur de les ajouter : menu de l'environnement → Edit → Network access.
+- Le réseau sortant est filtré. Domaines dont le projet a besoin : `api.dofusdb.fr`, `api.dofusdu.de`, `www.dofuspourlesnoobs.com`. S'ils sont bloqués (`curl` renvoie `000` ou 403), demande à l'utilisateur de les ajouter : menu de l'environnement → Edit → Network access.
 - `api.anthropic.com` est joignable, mais il n'y a pas de clé API. Pour tester la génération, lance `node scripts/dev/mock-anthropic.mjs` puis `ANTHROPIC_API_KEY=test ANTHROPIC_BASE_URL=http://localhost:4010 PORT=3125 npx next start`.
 - Docker : le daemon n'est pas lancé, il faut démarrer `dockerd` en arrière-plan. Dans le conteneur, `docker build` échoue sur `npm ci` à cause du proxy. Pour tester l'étape d'exécution, construis plutôt l'image depuis un `.next/standalone` local.
 - Playwright et Chromium sont installés globalement : `require(execSync('npm root -g') + '/playwright')`. Ils servent aux captures d'écran mobile (390×844) et ordinateur.

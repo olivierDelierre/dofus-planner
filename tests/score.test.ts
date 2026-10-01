@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { baselineScore } from "../src/lib/score";
-import type { DofusbookProfile } from "../src/lib/types";
+import type { CharacterProfile } from "../src/lib/types";
 
-type Member = Pick<DofusbookProfile, "className" | "level" | "elements">;
+type Member = Pick<CharacterProfile, "className" | "level" | "elements">;
 const char = (c: Partial<Member> & { name?: string }): Member => ({
   className: "Iop",
   level: 200,

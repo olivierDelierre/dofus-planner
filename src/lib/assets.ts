@@ -44,7 +44,7 @@ const STAT_ICONS: Record<string, string> = {
   vitalite: "vitality", force: "strength", intelligence: "intelligence", chance: "chance",
   agilite: "agility", sagesse: "wisdom",
   critique: "crit", initiative: "initiative", prospection: "prospecting", soins: "heal",
-  dommages: "damage", puissance: "damagesPercent", pods: "pods", renvoi: "return",
+  dommages: "damage", dommage: "damage", puissance: "damagesPercent", pods: "pods", renvoi: "return",
   esquivepa: "dodgeAP", esquivepm: "dodgeMP", invocation: "summonableCreaturesBoost",
   invocations: "summonableCreaturesBoost", maitrisedarme: "weaponDamage",
   resistanceterre: "res_earth", resistancefeu: "res_fire", resistanceeau: "res_water",
@@ -58,4 +58,10 @@ export function statIcon(key: string, label?: string): string | undefined {
     if (file) return `/game/stats/${file}.png`;
   }
   return undefined;
+}
+
+/** Passe par le proxy d'images de l'app (cache disque, liste blanche) pour les icônes distantes. */
+export function gameImage(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  return url.startsWith("/") ? url : `/api/icon?u=${encodeURIComponent(url)}`;
 }

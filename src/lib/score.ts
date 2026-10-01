@@ -3,9 +3,9 @@
  * Claude part de cette note et doit justifier tout écart : ça évite des étoiles
  * qui changent d'une génération à l'autre pour la même situation.
  */
-import type { BaselineScore, DofusbookProfile, Encounter } from "./types";
+import type { BaselineScore, CharacterProfile, Encounter } from "./types";
 
-type Member = Pick<DofusbookProfile, "className" | "level" | "elements">;
+type Member = Pick<CharacterProfile, "className" | "level" | "elements">;
 
 // Heuristique volontairement grossière : classes réputées pour soigner ou encaisser.
 const HEALERS = new Set<string>(["Eniripsa", "Osamodas"]);

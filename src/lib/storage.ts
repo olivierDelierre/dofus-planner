@@ -53,7 +53,14 @@ export function toSlug(input: string): string {
 
 export async function loadTeam(): Promise<Character[]> {
   const raw = await readJson<unknown>(TEAM_FILE);
-  return raw ? TeamSchema.parse(raw) : [];
+  if (!Array.isArray(raw)) return [];
+  const valid = raw.filter((c) => CharacterSchema.safeParse(c).success);
+  if (valid.length < raw.length) {
+    // Anciens personnages (saisie manuelle ou import DofusBook) : conservés à part, jamais perdus.
+    const backup = path.join(DATA_DIR, "team.legacy.json");
+    if (!(await readJson<unknown>(backup))) await writeJson(backup, raw);
+  }
+  return TeamSchema.parse(valid);
 }
 
 export function addCharacter(input: Omit<Character, "id">): Promise<Character> {

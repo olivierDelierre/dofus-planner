@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { elementIcon, statIcon } from "@/lib/assets";
+import { elementIcon } from "@/lib/assets";
 import { elementClass } from "@/lib/classes";
 import type { Character } from "@/lib/types";
 import { Avatar } from "./Avatar";
+import { CharacterEditor } from "./CharacterEditor";
 import { CharacterSheet } from "./CharacterSheet";
 
 interface Props {
@@ -13,61 +14,23 @@ interface Props {
 }
 
 export function TeamTab({ team, onChanged }: Props) {
-  const [url, setUrl] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const open = team.find((c) => c.id === openId) ?? null;
-
-  async function add(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/team", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: url.trim() }),
-      });
-      if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? `HTTP ${res.status}`);
-      setUrl("");
-      await onChanged();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(false);
-    }
-  }
 
   return (
     <>
-      <form className="card" onSubmit={add}>
-        <h2>Ajouter un personnage</h2>
-        <label>
-          Lien DofusBook de l&apos;équipement
-          <input
-            inputMode="url"
-            autoComplete="off"
-            placeholder="https://www.dofusbook.net/fr/equipement/…"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-          />
-        </label>
-        {error && <p className="error">{error}</p>}
-        <button className="btn primary block" style={{ marginTop: 12 }} disabled={busy || !url.trim()}>
-          {busy ? "Import en cours…" : "Importer depuis DofusBook"}
-        </button>
-      </form>
-
       <section className="card">
         <div className="card-header">
           <h2>Équipe partagée</h2>
-          <span className="muted">{team.length} perso{team.length > 1 ? "s" : ""}</span>
+          <button className="btn primary small" onClick={() => setCreating(true)}>
+            ＋ Nouveau personnage
+          </button>
         </div>
         {team.length === 0 ? (
           <div className="empty">
             <span className="icon">🛡️</span>
-            Colle un lien DofusBook ci-dessus pour ajouter ton premier personnage.
+            Crée ton premier personnage : classe, caractéristiques, équipement et sorts.
           </div>
         ) : (
           <div className="char-grid">
@@ -99,6 +62,7 @@ export function TeamTab({ team, onChanged }: Props) {
         )}
       </section>
 
+      {creating && <CharacterEditor onClose={() => setCreating(false)} onSaved={onChanged} />}
       {open && <CharacterSheet character={open} onClose={() => setOpenId(null)} onChanged={onChanged} />}
     </>
   );
