@@ -16,7 +16,7 @@ const CLASSES = {
 const STATS = [
   "strength", "intelligence", "chance", "agility", "vitality", "wisdom", "actionPoints", "movementPoints",
   "range", "crit", "initiative", "prospecting", "heal", "damage", "damagesPercent", "pods", "return",
-  "dodgeAP", "dodgeMP", "summonableCreaturesBoost", "weaponDamage", "res_neutral", "res_earth", "res_fire", "res_water", "res_air",
+  "dodgeAP", "dodgeMP", "summonableCreaturesBoost", "weaponDamage", "tackle", "escape", "criticalDamage", "res_neutral", "res_earth", "res_fire", "res_water", "res_air",
 ];
 
 async function get(url, file) {

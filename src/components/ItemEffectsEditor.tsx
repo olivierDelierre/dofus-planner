@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { gameImage } from "@/lib/assets";
+import { gameImage, statIcon } from "@/lib/assets";
 import { EFFECT_LABELS, type ItemEffect } from "@/lib/effects";
 
 interface DefaultEffect {
@@ -81,7 +81,15 @@ export function ItemEffectsEditor({ itemId, name, icon, current, onSave, onClose
           {rows.map((r, i) => (
             <div className="fx-row" key={r.label}>
               <label>
-                <span>{r.label}</span>
+                <span>
+                  {statIcon("", r.label) ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img className="ico" src={statIcon("", r.label)} alt="" />
+                  ) : (
+                    <span className="ico ico-empty" aria-hidden />
+                  )}
+                  {r.label}
+                </span>
                 <small className="muted">{rangeOf(r.label)}</small>
               </label>
               <input

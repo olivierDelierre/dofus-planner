@@ -1562,3 +1562,26 @@ label.inline {
 .fx-row input {
   min-height: 38px;
 }
+
+/* ---------- Effets avec icône ---------- */
+.effect {
+  display: inline-flex;
+  align-items: center;
+}
+.detail ul,
+.set ul {
+  list-style: none;
+  padding-left: 0;
+}
+.ico-empty {
+  display: inline-block;
+}
+.fx-row label span {
+  display: inline-flex;
+  align-items: center;
+}
+.fx-row .ico {
+  width: 20px;
+  height: 20px;
+  margin-right: 8px;
+}

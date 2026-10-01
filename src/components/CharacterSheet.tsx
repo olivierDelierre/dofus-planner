@@ -6,6 +6,7 @@ import { elementClass } from "@/lib/classes";
 import { type Character } from "@/lib/types";
 import { Avatar } from "./Avatar";
 import { CharacterEditor } from "./CharacterEditor";
+import { EffectText } from "./EffectText";
 import { Paperdoll } from "./Paperdoll";
 import { SetsList } from "./SetsList";
 import { StatsGrid } from "./StatsGrid";
@@ -126,7 +127,9 @@ export function CharacterSheet({ character, onClose, onChanged }: Props) {
             </strong>
             <ul>
               {shownDetail.effects.map((e, i) => (
-                <li key={i}>{e}</li>
+                <li key={i}>
+                  <EffectText text={e} />
+                </li>
               ))}
             </ul>
           </div>

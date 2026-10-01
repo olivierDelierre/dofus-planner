@@ -16,3 +16,12 @@ test("icônes d'éléments et de caractéristiques", () => {
   assert.ok(onDisk(statIcon("x", "Résistance Feu")));
   assert.equal(statIcon("pv"), undefined);
 });
+
+import { effectIcon } from "../src/lib/assets";
+
+test("icône d'un effet d'objet d'après son texte", () => {
+  for (const t of ["40 Force", "3% Critique", "6 à 10 Dommages", "-30 Esquive PA", "1 PA", "5% Résistance Feu", "9 Dommages Terre", "10 Soins", "-5 Fuite", "20 Tacle"]) {
+    assert.ok(existsSync(`public${effectIcon(t)}`), t);
+  }
+  assert.equal(effectIcon("-15 Résistance Critiques"), undefined);
+});

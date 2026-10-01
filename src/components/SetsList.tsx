@@ -1,3 +1,4 @@
+import { EffectText } from "./EffectText";
 import type { CharacterProfile } from "@/lib/types";
 
 /** Panoplies portées, avec le bonus actif pour le nombre de pièces équipées. */
@@ -18,7 +19,9 @@ export function SetsList({ sets }: { sets: CharacterProfile["sets"] }) {
             {s.bonus.length > 0 ? (
               <ul>
                 {s.bonus.map((b, i) => (
-                  <li key={i}>{b}</li>
+                  <li key={i}>
+                    <EffectText text={b} />
+                  </li>
                 ))}
               </ul>
             ) : (

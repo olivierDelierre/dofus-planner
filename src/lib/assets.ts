@@ -44,7 +44,12 @@ const STAT_ICONS: Record<string, string> = {
   vitalite: "vitality", force: "strength", intelligence: "intelligence", chance: "chance",
   agilite: "agility", sagesse: "wisdom",
   critique: "crit", initiative: "initiative", prospection: "prospecting", soins: "heal",
-  dommages: "damage", dommage: "damage", puissance: "damagesPercent", pods: "pods", renvoi: "return",
+  dommages: "damage", dommage: "damage",
+  dommagesneutre: "res_neutral", dommageneutre: "res_neutral", dommagesterre: "strength", dommageterre: "strength",
+  dommagesfeu: "intelligence", dommagefeu: "intelligence", dommageseau: "chance", dommageeau: "chance",
+  dommagesair: "agility", dommageair: "agility", dommagescritiques: "criticalDamage", dommagecritiques: "criticalDamage",
+  soin: "heal", tacle: "tackle", fuite: "escape",
+  dommagesauxarmes: "weaponDamage", dommagesarmes: "weaponDamage", puissance: "damagesPercent", pods: "pods", renvoi: "return",
   esquivepa: "dodgeAP", esquivepm: "dodgeMP", invocation: "summonableCreaturesBoost",
   invocations: "summonableCreaturesBoost", maitrisedarme: "weaponDamage",
   resistanceterre: "res_earth", resistancefeu: "res_fire", resistanceeau: "res_water",
@@ -64,4 +69,13 @@ export function statIcon(key: string, label?: string): string | undefined {
 export function gameImage(url: string | undefined): string | undefined {
   if (!url) return undefined;
   return url.startsWith("/") ? url : `/api/icon?u=${encodeURIComponent(url)}`;
+}
+
+/**
+ * Icône d'un effet écrit comme dans les données du jeu (« 40 Force », « 3% Critique », « 6 à 10 Dommages »).
+ * Renvoie undefined quand le libellé n'a pas d'icône connue.
+ */
+export function effectIcon(text: string): string | undefined {
+  const label = text.replace(/^[-+]?\d+(\s*à\s*[-+]?\d+)?\s*%?\s*/, "").replace(/^%\s*/, "");
+  return statIcon("", label);
 }
