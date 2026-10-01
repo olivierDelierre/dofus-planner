@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "crypto";
 import { promises as fs } from "fs";
 import path from "path";
+import { log } from "./debuglog";
 import { CharacterSchema, TeamSchema, type Character, type GuideFile, type PlanRecord } from "./types";
 
 export const DATA_DIR = process.env.DATA_DIR ?? path.join(process.cwd(), "data");
@@ -183,11 +184,35 @@ export async function cachedFetchJson(url: string, ttlMs = 7 * 24 * 3600 * 1000)
   const hash = createHash("sha1").update(url).digest("hex").slice(0, 12);
   const file = path.join(CACHE_DIR, `${key}-${hash}.json`);
   const cached = await readJson<{ at: number; data: unknown }>(file);
-  if (cached && Date.now() - cached.at < ttlMs) return cached.data;
+  if (cached && Date.now() - cached.at < ttlMs) {
+    log("debug", "cache", `Cache : ${new URL(url).pathname}`);
+    return cached.data;
+  }
 
-  const res = await fetch(url, { headers: { Accept: "application/json" } });
-  if (!res.ok) throw new Error(`HTTP ${res.status} sur ${new URL(url).host}`);
+  const started = Date.now();
+  const target = new URL(url);
+  const short = `${target.host}${target.pathname}`;
+  let res: Response;
+  try {
+    res = await fetch(url, { headers: { Accept: "application/json" } });
+  } catch (err) {
+    log("error", "api", `Appel impossible vers ${short}`, { url, error: err instanceof Error ? err.message : String(err) });
+    throw new Error(`Appel impossible vers ${target.host} : ${err instanceof Error ? err.message : err}`);
+  }
+  if (!res.ok) {
+    const body = (await res.text().catch(() => "")).slice(0, 300);
+    log("error", "api", `HTTP ${res.status} sur ${short}`, { url, body });
+    // Le détail (chemin et message du serveur) aide à comprendre un refus de requête.
+    let detail = body;
+    try {
+      detail = JSON.parse(body).message ?? body;
+    } catch {
+      // corps non JSON : on garde le texte brut
+    }
+    throw new Error(`HTTP ${res.status} sur ${short}${detail ? ` : ${detail}` : ""}`);
+  }
   const data = await res.json();
+  log("debug", "api", `GET ${short} → ${res.status} (${Date.now() - started} ms)`, { url });
   await writeJson(file, { at: Date.now(), data });
   return data;
 }

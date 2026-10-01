@@ -56,6 +56,14 @@ Limites connues / idées :
 - Les fiches enregistrées avant cette version gardent leurs anciens sorts jusqu'à « ↻ Actualiser ».
 - Piste non faite : dommages chiffrés par grade (`spell-levels.effects`, `diceNum`/`diceSide`).
 
+## Session 6 : correctifs et outils de diagnostic
+
+- **HTTP 400 DofusDB** : `name.fr[$search]` est refusé par DofusDB ; `searchMonsters`/`searchDungeons` passent par `$regex` insensible à la casse (`ciRegex`), monstres et donjons allégés pour Claude. Les erreurs d'API incluent maintenant le chemin et le message du serveur.
+- **Mode debug** (menu Compte) : `src/lib/debuglog.ts` (journal mémoire + `DATA_DIR/logs/debug.log`, secrets masqués), route `/api/debug`, bouton « Copier le rapport » aussi sur les erreurs de génération. Les erreurs sont toujours journalisées, les traces détaillées seulement si le mode est actif (`DEBUG_LOG=true` pour le défaut).
+- **Niveau des sorts** : Claude avait conseillé une variante niv. 135 à un perso niv. 123. `describeSpell` et `get_class_spells(className, level)` marquent PAS ENCORE DÉBLOQUÉ / INDISPONIBLE, le prompt impose une règle de niveau, et `plan-check.ts` ajoute un avertissement dans `missingInfo` si un plan cite un sort verrouillé.
+- **Jets exacts** : `build.items[].effects` remplace les jets maximum (FM, exo) ; éditeur `ItemEffectsEditor` (bouton ✎ sur l'objet), route `GET /api/game/items/[id]`, marqueur « jets personnalisés ».
+- Piste : import du stuff par capture d'écran (vision), plan écrit mais non validé par l'utilisateur ; pas d'API publique pour le stuff réel.
+
 ## Encore jamais testé en conditions réelles
 
 À vérifier dès que le réseau le permet. Ces points sont aussi signalés dans le README.

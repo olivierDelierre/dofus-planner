@@ -3,6 +3,7 @@
  * Les noms, icônes et effets viennent des API du jeu ; les caractéristiques totales sont calculées ici.
  */
 import { getBreeds, getClassSpells, getItemDetail, getSet, setBonusFor } from "./gamedata";
+import { effectText } from "./effects";
 import { gradeStats, rangeText, spellGrade, unlockLevel, type ClassSpell } from "./spells";
 import { BASE_STATS, type BaseStat, type BuildInput, type CharacterProfile } from "./types";
 
@@ -142,9 +143,11 @@ export async function buildProfile(input: BuildInput): Promise<CharacterProfile>
       level: d.level || undefined,
       type: d.type || undefined,
       icon: d.icon || undefined,
-      effects: d.effects.map((e) => e.text),
+      // Jets saisis par l'utilisateur (FM, exo) : ils remplacent les jets maximum du jeu.
+      effects: it.effects ? it.effects.map((e) => effectText(e.label, e.value)) : d.effects.map((e) => e.text),
+      custom: it.effects ? true : undefined,
     });
-    for (const e of d.effects) bonuses.push({ label: e.label, value: e.value });
+    for (const e of it.effects ?? d.effects) bonuses.push({ label: e.label, value: e.value });
   });
 
   const spells = buildSpells(spellList, input.spells, input.level);

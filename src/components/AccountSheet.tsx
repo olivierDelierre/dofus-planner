@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Profile } from "@/lib/auth";
+import { DebugPanel } from "./DebugPanel";
 
 type Theme = "dark" | "light";
 
@@ -121,6 +122,8 @@ export function AccountSheet({ profile, onClose, onLoggedOut }: Props) {
           </form>
         )}
         {message && <p className={message.ok ? "muted" : "error"}>{message.text}</p>}
+
+        <DebugPanel />
 
         <button
           className="btn block"

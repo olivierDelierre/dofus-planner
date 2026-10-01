@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { randomUUID } from "crypto";
+import { log } from "@/lib/debuglog";
 import { authed, jsonError, readBody } from "@/lib/api";
 import { generatePlan } from "@/lib/planner";
 import { loadTeam, savePlan } from "@/lib/storage";
@@ -63,6 +64,7 @@ export const POST = authed(async (req, profile) => {
         await savePlan(record);
         send({ type: "done", record });
       } catch (err) {
+        log("error", "plan", `Génération échouée : ${describeError(err)}`, { encounter: encounter.name, model, détail: err instanceof Error ? err.stack?.split("\n").slice(0, 4).join(" | ") : String(err) });
         send({ type: "error", error: describeError(err) });
       } finally {
         if (open) controller.close();

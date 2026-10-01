@@ -6,6 +6,8 @@ export interface DollItem {
   name: string;
   icon?: string;
   level?: number;
+  /** Jets modifiés à la main (FM, exo). */
+  custom?: boolean;
 }
 
 const LEFT: Slot[] = ["Amulette", "Bouclier", "Anneau 1", "Ceinture", "Bottes"];
@@ -24,10 +26,12 @@ interface Props {
   editable?: boolean;
   onSlot: (slot: Slot) => void;
   onClear?: (slot: Slot) => void;
+  /** Éditeur : modifier les jets exacts de l'objet porté. */
+  onEdit?: (slot: Slot) => void;
 }
 
 /** Équipement façon fiche DofusBook : colonnes d'emplacements de chaque côté, personnage au centre, Dofus en bas. */
-export function Paperdoll({ items, className, symbol, head, title, subtitle, selected, editable, onSlot, onClear }: Props) {
+export function Paperdoll({ items, className, symbol, head, title, subtitle, selected, editable, onSlot, onClear, onEdit }: Props) {
   const cell = (slot: Slot) => {
     const it = items[slot];
     const cls = ["dslot", it ? "filled" : "", selected === slot ? "sel" : ""].join(" ").trim();
@@ -48,6 +52,16 @@ export function Paperdoll({ items, className, symbol, head, title, subtitle, sel
           )}
           <span className="dslot-label">{it ? it.name : slot}</span>
         </button>
+        {it?.custom && (
+          <span className="dslot-custom" title="Jets modifiés à la main" aria-hidden>
+            ✎
+          </span>
+        )}
+        {editable && it && onEdit && (
+          <button className="dslot-edit" aria-label={`Modifier les jets de ${it.name}`} title="Modifier les jets (FM, exo)" onClick={() => onEdit(slot)}>
+            ✎
+          </button>
+        )}
         {editable && it && (
           <button className="dslot-x" aria-label={`Retirer ${it.name}`} onClick={() => onClear?.(slot)}>
             ✕

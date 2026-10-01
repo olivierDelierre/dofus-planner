@@ -1477,3 +1477,88 @@ label.inline {
   background: var(--el-air, #4fbf73);
   color: #fff;
 }
+
+/* ---------- Débogage ---------- */
+.debug-panel {
+  margin-top: 20px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.switch-row {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+  font-weight: 500;
+  color: var(--text);
+}
+.switch-row input {
+  width: 20px;
+  min-height: 20px;
+  margin-top: 2px;
+  flex: none;
+}
+.debug-report {
+  margin-top: 8px;
+  min-height: 160px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  white-space: pre;
+}
+.error {
+  white-space: pre-line;
+}
+
+/* ---------- Jets d'objets (FM, exo) ---------- */
+.dslot-edit,
+.dslot-custom {
+  position: absolute;
+  bottom: 3px;
+  right: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 0;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 12px;
+  display: grid;
+  place-items: center;
+  line-height: 1;
+}
+.dslot-edit {
+  cursor: pointer;
+  bottom: 3px;
+  right: 3px;
+}
+.dslot-custom {
+  pointer-events: none;
+  background: var(--el-air, #4fbf73);
+  color: #fff;
+  top: 3px;
+  left: 3px;
+  bottom: auto;
+  right: auto;
+  width: 18px;
+  height: 18px;
+  font-size: 10px;
+}
+.fx-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+.fx-row {
+  display: grid;
+  grid-template-columns: 1fr 96px auto;
+  gap: 8px;
+  align-items: center;
+}
+.fx-row label {
+  gap: 0;
+  color: var(--text);
+  font-weight: 600;
+}
+.fx-row input {
+  min-height: 38px;
+}

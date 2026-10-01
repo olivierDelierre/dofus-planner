@@ -13,10 +13,12 @@ import { betaZodOutputFormat, betaZodTool } from "@anthropic-ai/sdk/helpers/beta
 import { z } from "zod";
 import { fetchDplnGuide } from "./dpln";
 import { normalize, searchGuides } from "./guide-search";
-import { rangeText, type SpellVersion } from "./spells";
+import { rangeText, unlockLevel, type SpellVersion } from "./spells";
 import { getBreeds, getClassSpells, searchDungeons, searchEquipment, searchMonsters, searchSets, toToolResult } from "./gamedata";
 import { clampStars, baselineScore } from "./score";
 import { listGuides, loadGuide } from "./storage";
+import { log } from "./debuglog";
+import { levelWarnings } from "./plan-check";
 import { PlanSchema, type Character, type Encounter, type ModelId, type PlanResponse } from "./types";
 
 // Créé à la première utilisation : l'app démarre même sans clé configurée.
@@ -41,10 +43,14 @@ export type ProgressFn = (message: string) => void;
 function step<T>(progress: ProgressFn, label: (input: T) => string, fn: (input: T) => Promise<string>) {
   return async (input: T): Promise<string> => {
     progress(label(input));
+    const started = Date.now();
     try {
-      return await fn(input);
+      const result = await fn(input);
+      log("debug", "outil", `${label(input)} → ${result.length} caractères (${Date.now() - started} ms)`, { input, début: result.slice(0, 200) });
+      return result;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      log("error", "outil", `${label(input)} a échoué : ${message}`, { input });
       progress(`⚠ ${message}`);
       return `ERREUR : ${message}`;
     }
@@ -113,18 +119,26 @@ function makeResearchTools(progress: ProgressFn) {
       name: "get_class_spells",
       description:
         "Tous les sorts d'une classe Dofus 3 : version de base ET variante, avec description, coûts (PA), portée, relance et niveau de personnage requis pour chaque grade. " +
-        "À utiliser pour proposer des changements de variantes ou de sorts réellement disponibles au niveau du personnage.",
-      inputSchema: z.object({ className: z.string().describe("Nom de la classe, ex. « Iop », « Crâ », « Xélor »") }),
+        "Indique le niveau du personnage : les sorts pas encore débloqués à ce niveau sont marqués INDISPONIBLE et ne doivent JAMAIS être conseillés comme solution immédiate.",
+      inputSchema: z.object({
+        className: z.string().describe("Nom de la classe, ex. « Iop », « Crâ », « Xélor »"),
+        level: z.number().int().describe("Niveau du personnage concerné"),
+      }),
       run: step(
         progress,
-        ({ className }) => `Consultation des sorts de la classe ${className}`,
-        async ({ className }) => {
+        ({ className, level }) => `Consultation des sorts de la classe ${className} (niveau ${level})`,
+        async ({ className, level }) => {
           const breed = (await getBreeds()).find((b) => normalize(b.name) === normalize(className));
           if (!breed) return `Classe inconnue : ${className}`;
           const spells = await getClassSpells(breed.id);
-          const line = (v: SpellVersion, tag: string) =>
-            `  ${tag} ${v.name} — ${v.description || "(pas de description)"} | ` +
-            v.grades.map((g) => `niv.${g.minLevel}: ${g.apCost} PA, portée ${rangeText(g)}${g.cooldown ? `, relance ${g.cooldown}` : ""}`).join(" ; ");
+          const line = (v: SpellVersion, tag: string) => {
+            const unlock = unlockLevel(v.grades);
+            const status = unlock !== undefined && unlock > level ? `INDISPONIBLE (niv. ${unlock} requis, perso niv. ${level})` : `disponible dès le niv. ${unlock ?? "?"}`;
+            return (
+              `  ${tag} ${v.name} [${status}] — ${v.description || "(pas de description)"} | ` +
+              v.grades.map((g) => `niv.${g.minLevel}: ${g.apCost} PA, portée ${rangeText(g)}${g.cooldown ? `, relance ${g.cooldown}` : ""}`).join(" ; ")
+            );
+          };
           return spells.map((cs) => [line(cs.base, "•"), cs.variant ? line(cs.variant, "↔ variante :") : null].filter(Boolean).join("\n")).join("\n");
         },
       ),
@@ -177,7 +191,7 @@ const RESEARCH_SYSTEM = `Tu prépares un combat dans Dofus 3 (version Unity). To
 Démarche :
 1. Cherche d'abord dans la base locale (find_local_guides) : tous les donjons de Dofus pour les noobs y sont déjà. Si un guide correspond, lis-le (read_local_guide) et ne scrape rien.
 2. Sinon, trouve la page correspondante sur dofuspourlesnoobs.com avec web_search, puis récupère-la avec fetch_dpln_guide pour qu'elle soit sauvegardée.
-3. Pour proposer des variantes ou des sorts, consulte les sorts de la classe avec get_class_spells (les sorts de l'équipe sont déjà décrits ci-dessous, mais pas l'alternative de chaque sort ni les grades).
+3. Pour proposer des variantes ou des sorts, consulte les sorts de la classe avec get_class_spells en donnant le niveau de chaque personnage (les sorts de l'équipe sont déjà décrits ci-dessous, mais pas l'alternative de chaque sort ni les grades). Respecte toujours le niveau : ne retiens jamais un sort, une variante ou un objet dont le niveau requis dépasse celui du personnage.
 4. Complète avec les API (monstres, donjon, équipements) quand c'est utile pour les résistances, PV et niveaux.
 
 Termine par des notes de recherche en français : niveau du combat, salles, monstres et boss (résistances, sorts dangereux), mécaniques obligatoires, stratégies recommandées par le guide, et sources utilisées.
@@ -190,14 +204,22 @@ const PLAN_SYSTEM = `Tu es un joueur expert de Dofus 3 qui conseille une équipe
 Appuie-toi en priorité sur les notes de recherche fournies ; quand tu utilises tes connaissances générales du jeu, reste prudent car les sorts changent à chaque mise à jour.
 Pour chaque personnage, propose des changements concrets (variantes de sorts, éléments, stuff, caractéristiques, consommables) et explique pourquoi pour CE combat. Si le personnage est déjà adapté, dis-le avec peu de changements.
 Le score de confiance part du score de base fourni : écarte-t'en seulement avec une justification (mécanique punitive, équipe très adaptée, etc.).
+RÈGLE DE NIVEAU : ne conseille jamais comme solution actuelle un sort, une variante ou un objet dont le niveau requis dépasse celui du personnage (les sorts marqués PAS ENCORE DÉBLOQUÉ ou INDISPONIBLE sont exclus). Si tu penses qu'un tel sort serait utile plus tard, dis-le explicitement comme objectif futur (« à viser au niveau N ») et propose une alternative utilisable maintenant.
 Liste honnêtement les informations manquantes. Dans la liste des sources, ajoute « (non vérifié) » à toute source qui n'est ni un guide Dofus pour les noobs ni une API de données du jeu, et signale-la aussi dans les informations incertaines. Réponds en français.`;
 
-function describeSpell(s: Character["profile"]["spells"][number]): string {
-  const state = s.level ? `niv. ${s.level}` : s.unlockedAt ? `pas encore débloqué, niv. ${s.unlockedAt} requis` : "non débloqué";
+function describeSpell(s: Character["profile"]["spells"][number], level: number): string {
+  const state = s.level ? `niv. ${s.level}` : s.unlockedAt ? `PAS ENCORE DÉBLOQUÉ : niv. ${s.unlockedAt} requis` : "non débloqué";
   const facts = [s.ap !== undefined ? `${s.ap} PA` : null, s.range ? `portée ${s.range}` : null, s.cooldown ? `relance ${s.cooldown}` : null]
     .filter(Boolean)
     .join(", ");
-  const alt = s.alt ? ` [${s.variant ? "version de base" : "variante disponible"} : ${s.alt.name}${s.alt.description ? ` — ${s.alt.description}` : ""}]` : "";
+  let alt = "";
+  if (s.alt) {
+    const locked = s.alt.unlockedAt !== undefined && s.alt.unlockedAt > level;
+    const availability = locked
+      ? `INDISPONIBLE : niv. ${s.alt.unlockedAt} requis, le personnage est niv. ${level}`
+      : "disponible";
+    alt = ` [${s.variant ? "version de base" : "variante"} : ${s.alt.name} (${availability})${s.alt.description ? ` — ${s.alt.description}` : ""}]`;
+  }
   return `- ${s.name}${s.variant ? " (variante)" : ""} (${state}${facts ? ` ; ${facts}` : ""}) : ${s.description ?? ""}${alt}`;
 }
 
@@ -205,9 +227,11 @@ function describeTeam(team: Character[]): string {
   return team
     .map(({ profile: p, notes }) => {
       const stats = p.stats.map((s) => `${s.label} ${s.value}`).join(", ");
-      const items = p.items.map((i) => `${i.slot} : ${i.name}${i.level ? ` (niv. ${i.level})` : ""}`).join(" ; ");
+      const items = p.items
+        .map((i) => `${i.slot} : ${i.name}${i.level ? ` (niv. ${i.level})` : ""}${i.custom ? ` [jets exacts : ${i.effects.join(", ")}]` : ""}`)
+        .join(" ; ");
       const sets = p.sets.map((x) => `${x.name} ${x.count}/${x.size}${x.bonus.length ? ` (${x.bonus.join(", ")})` : ""}`).join(" ; ");
-      const spells = p.spells.map(describeSpell).join("\n    ");
+      const spells = p.spells.map((sp) => describeSpell(sp, p.level)).join("\n    ");
       return [
         `- ${p.name} : ${p.className} niveau ${p.level}, éléments ${p.elements.join("/") || "non déterminés"}`,
         stats ? `  Caractéristiques : ${stats}` : null,
@@ -306,10 +330,12 @@ export async function generatePlan(
     team.map((c) => c.profile),
     encounter,
   );
+  log("debug", "plan", `Génération : ${encounter.name} (${model}), ${team.length} perso(s)`, { encounter, équipe: team.map((c) => c.profile.name) });
   progress(`Score de base : ${baseline.stars}/5`);
   progress("Recherche des informations sur le combat");
   const notes = await research(model, encounter, team, progress);
 
+  log("debug", "plan", `Recherche terminée (${notes.length} caractères de notes)`);
   progress("Rédaction du plan et des conseils par personnage");
   const response = await getClient().beta.messages.parse({
     model,
@@ -336,5 +362,10 @@ export async function generatePlan(
   if (!plan) throw new Error("Réponse de Claude illisible (JSON invalide).");
 
   plan.confidence.stars = clampStars(plan.confidence.stars);
+  const warnings = levelWarnings(plan, team);
+  if (warnings.length) {
+    log("warn", "plan", "Sorts recommandés mais pas encore débloqués", warnings);
+    plan.missingInfo.push(...warnings);
+  }
   return { plan, baseline, research: notes, model, servedBy: response.model };
 }

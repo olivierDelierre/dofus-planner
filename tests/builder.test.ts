@@ -88,3 +88,50 @@ test("anciennes saisies de sorts { id, level } toujours valides", () => {
   const parsed = BuildInputSchema.parse(input);
   assert.equal(parsed.spells[0].variant, false);
 });
+
+import { redact } from "../src/lib/debuglog";
+
+test("le journal de debug masque les secrets", () => {
+  const out = JSON.stringify(redact({ apiKey: "sk-ant-abc123", password: "x", note: "Authorization: Bearer abc", ok: "visible", nested: { cookie: "s=1" } }));
+  assert.doesNotMatch(out, /sk-ant-abc123|Bearer abc|"x"|s=1/);
+  assert.match(out, /visible/);
+});
+
+import { levelWarnings } from "../src/lib/plan-check";
+
+test("plan : un sort pas encore débloqué est signalé", () => {
+  const member = {
+    id: "1",
+    build: {} as never,
+    profile: {
+      name: "Iopette", level: 123,
+      spells: [
+        { id: 1, name: "Pression", level: 2, unlockedAt: 1, variant: false, alt: { name: "Fracture", unlockedAt: 135 } },
+        { id: 2, name: "Bond", level: 2, unlockedAt: 10, variant: false },
+      ],
+    } as never,
+  };
+  const plan = {
+    characters: [{ name: "Iopette", role: "dégâts", keySpells: ["Pression"], changes: [{ category: "sort", change: "Passer sur Fracture", why: "Zone" }] }],
+  } as never;
+  const w = levelWarnings(plan, [member]);
+  assert.equal(w.length, 1);
+  assert.match(w[0], /Fracture.*135/);
+  const ok = { characters: [{ name: "Iopette", role: "x", keySpells: ["Pression"], changes: [] }] } as never;
+  assert.deepEqual(levelWarnings(ok, [member]), []);
+});
+
+import { effectText } from "../src/lib/effects";
+
+test("jets personnalisés : format des effets et prise en compte dans les caractéristiques", () => {
+  assert.equal(effectText("Force", 40), "40 Force");
+  assert.equal(effectText("% Critique", 3), "3% Critique");
+  assert.equal(effectText("Fuite", -5), "-5 Fuite");
+  const { stats } = computeStats(200, { vitalite: 0, sagesse: 0, force: 0, intelligence: 0, chance: 0, agilite: 0 }, [
+    { label: "Force", value: 70 }, // jet saisi à la main
+    { label: "Force", value: 20 }, // autre objet
+    { label: "PA", value: 1 }, // exo
+  ]);
+  assert.equal(stats.find((s) => s.key === "force")?.value, 90);
+  assert.equal(stats.find((s) => s.key === "pa")?.value, 8);
+});

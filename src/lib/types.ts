@@ -50,7 +50,16 @@ export const BuildInputSchema = z.object({
   level: z.number().int().min(1).max(200),
   /** Points investis dans chaque caractéristique (capital + parchemins), hors équipement. */
   base: z.object(Object.fromEntries(BASE_STATS.map((k) => [k, z.number().int().min(0).max(2000)])) as Record<BaseStat, z.ZodNumber>),
-  items: z.array(z.object({ slot: z.enum(SLOTS), itemId: z.number().int() })).max(SLOTS.length),
+  items: z
+    .array(
+      z.object({
+        slot: z.enum(SLOTS),
+        itemId: z.number().int(),
+        /** Jets exacts de l'objet (FM, exos) : remplace les effets par défaut au jet maximum. */
+        effects: z.array(z.object({ label: z.string().min(1).max(40), value: z.number().int().min(-5000).max(5000) })).max(30).optional(),
+      }),
+    )
+    .max(SLOTS.length),
   /** Sorts dont la variante est choisie (les autres restent en version de base). Le niveau se déduit du niveau du perso. */
   spells: z
     .array(z.object({ id: z.number().int(), variant: z.boolean().default(false), level: z.number().int().optional() }))
@@ -79,6 +88,8 @@ export const ProfileSchema = z.object({
       type: z.string().optional(),
       icon: z.string().optional(),
       effects: z.array(z.string()).default([]),
+      /** Jets saisis à la main (FM, exo) au lieu des jets maximum du jeu. */
+      custom: z.boolean().optional(),
     }),
   ),
   stats: z.array(z.object({ key: z.string(), label: z.string(), value: z.union([z.number(), z.string()]) })),

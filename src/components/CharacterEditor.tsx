@@ -13,6 +13,8 @@ import {
   type Slot,
 } from "@/lib/types";
 import { spellGrade, unlockLevel, type ClassSpell } from "@/lib/spells";
+import { type ItemEffect } from "@/lib/effects";
+import { ItemEffectsEditor } from "./ItemEffectsEditor";
 import { ItemPicker, type ItemHit } from "./ItemPicker";
 import { Paperdoll } from "./Paperdoll";
 import { SetsList } from "./SetsList";
@@ -24,7 +26,7 @@ interface Breed {
   symbol: string;
   heads: { m: string; f: string };
 }
-type Picked = { itemId: number; name: string; icon: string; level: number };
+type Picked = { itemId: number; name: string; icon: string; level: number; effects?: ItemEffect[] };
 
 const BASE_LABEL: Record<BaseStat, string> = {
   vitalite: "Vitalité",
@@ -61,7 +63,13 @@ export function CharacterEditor({ existing, onClose, onSaved }: Props) {
     Object.fromEntries(
       (existing?.profile.items ?? []).map((i) => [
         i.slot,
-        { itemId: i.itemId, name: i.name, icon: i.icon ?? "", level: i.level ?? 0 },
+        {
+          itemId: i.itemId,
+          name: i.name,
+          icon: i.icon ?? "",
+          level: i.level ?? 0,
+          effects: existing?.build.items.find((b) => b.slot === i.slot)?.effects,
+        },
       ]),
     ),
   );
@@ -71,6 +79,7 @@ export function CharacterEditor({ existing, onClose, onSaved }: Props) {
   );
   const [notes, setNotes] = useState(existing?.notes ?? "");
   const [picking, setPicking] = useState<Slot | null>(null);
+  const [editingFx, setEditingFx] = useState<Slot | null>(null);
   const [preview, setPreview] = useState<CharacterProfile | null>(existing?.profile ?? null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -103,7 +112,7 @@ export function CharacterEditor({ existing, onClose, onSaved }: Props) {
       gender,
       level,
       base,
-      items: SLOTS.flatMap((slot) => (items[slot] ? [{ slot, itemId: items[slot]!.itemId }] : [])),
+      items: SLOTS.flatMap((slot) => (items[slot] ? [{ slot, itemId: items[slot]!.itemId, ...(items[slot]!.effects ? { effects: items[slot]!.effects } : {}) }] : [])),
       spells: Object.entries(variants)
         .filter(([, v]) => v)
         .map(([id]) => ({ id: Number(id), variant: true })),
@@ -243,13 +252,14 @@ export function CharacterEditor({ existing, onClose, onSaved }: Props) {
         <h3>Équipement</h3>
         <Paperdoll
           editable
-          items={items}
+          items={Object.fromEntries(Object.entries(items).map(([slot, it]) => [slot, { ...it, custom: !!it.effects }]))}
           className={breed?.name ?? ""}
           symbol={breed?.symbol}
           head={breed?.heads[gender]}
           title={name.trim() || "Nouveau personnage"}
           subtitle={breed ? `${breed.name} · niv. ${level}` : "Choisis une classe"}
           onSlot={setPicking}
+          onEdit={setEditingFx}
           onClear={(slot) => setItems(({ [slot]: _removed, ...rest }) => rest)}
         />
 
@@ -328,6 +338,19 @@ export function CharacterEditor({ existing, onClose, onSaved }: Props) {
         </div>
       </div>
 
+      {editingFx && items[editingFx] && (
+        <ItemEffectsEditor
+          itemId={items[editingFx]!.itemId}
+          name={items[editingFx]!.name}
+          icon={items[editingFx]!.icon}
+          current={items[editingFx]!.effects}
+          onClose={() => setEditingFx(null)}
+          onSave={(effects) => {
+            setItems({ ...items, [editingFx]: { ...items[editingFx]!, effects } });
+            setEditingFx(null);
+          }}
+        />
+      )}
       {picking && (
         <ItemPicker
           slot={picking}

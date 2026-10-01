@@ -108,7 +108,7 @@ export function CharacterSheet({ character, onClose, onChanged }: Props) {
           <div>
         <h3>Équipement</h3>
         <Paperdoll
-          items={Object.fromEntries(p.items.map((i) => [i.slot, { name: i.name, icon: i.icon, level: i.level }]))}
+          items={Object.fromEntries(p.items.map((i) => [i.slot, { name: i.name, icon: i.icon, level: i.level, custom: i.custom }]))}
           className={p.className}
           symbol={p.classImage}
           head={p.headImage}
@@ -122,6 +122,7 @@ export function CharacterSheet({ character, onClose, onChanged }: Props) {
             <strong>
               {shownDetail.name}
               {shownDetail.level ? ` · niv. ${shownDetail.level}` : ""}
+              {shownDetail.custom ? " · jets personnalisés" : ""}
             </strong>
             <ul>
               {shownDetail.effects.map((e, i) => (

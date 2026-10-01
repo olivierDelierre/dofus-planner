@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { MODELS, type Character, type Encounter, type ModelId, type PlanRecord, type PlanStreamEvent } from "@/lib/types";
 import { Avatar } from "./Avatar";
+import { copyDebugReport } from "./DebugPanel";
 import { PlanView } from "./PlanView";
 import { ProgressView, type ProgressStep } from "./ProgressView";
 
@@ -241,7 +242,26 @@ export function CombatTab({ team, onUnauthorized, onPlanSaved, onGoToTeam }: Pro
         <button className="btn primary block" style={{ marginTop: 16 }} onClick={generate} disabled={!canGenerate}>
           {busy ? "Analyse en cours…" : "✨ Générer le plan"}
         </button>
-        {error && <p className="error">{error}</p>}
+        {error && (
+          <div className="error">
+            <p style={{ margin: 0 }}>{error}</p>
+            <button
+              type="button"
+              className="btn small"
+              style={{ marginTop: 8 }}
+              onClick={async () => {
+                try {
+                  await copyDebugReport();
+                  setError(`${error}\n(Rapport de débogage copié : colle-le dans la conversation.)`);
+                } catch {
+                  // rapport indisponible : l'erreur reste affichée
+                }
+              }}
+            >
+              📋 Copier le rapport de debug
+            </button>
+          </div>
+        )}
       </section>
 
       {progress && <ProgressView startedAt={progress.startedAt} steps={progress.steps} />}

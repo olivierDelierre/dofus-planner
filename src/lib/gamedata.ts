@@ -194,7 +194,7 @@ export interface ItemDetail extends ItemHit {
   type: string;
   setId?: number;
   /** Effets avec leur valeur retenue (maximum du jet) quand ce sont des bonus chiffrés. */
-  effects: { label: string; value: number; text: string }[];
+  effects: { label: string; value: number; min: number; text: string }[];
 }
 
 interface DudeEffect {
@@ -229,6 +229,7 @@ export async function getItemDetail(id: number): Promise<ItemDetail | null> {
     .map((e) => ({
       label: e.type.name,
       value: !e.ignore_int_max && e.int_maximum >= e.int_minimum ? e.int_maximum : e.int_minimum,
+      min: e.int_minimum,
       text: e.formatted,
     }));
   return {
