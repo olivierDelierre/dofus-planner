@@ -1403,3 +1403,37 @@ label.inline {
     width: min(80%, 260px);
   }
 }
+
+/* ---------- Panoplies ---------- */
+.sets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+}
+.set {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  font-size: 13px;
+}
+.set.on {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+.set-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.set-count {
+  font-weight: 800;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.set ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+.set p {
+  margin: 4px 0 0;
+}

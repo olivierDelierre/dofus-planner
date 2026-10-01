@@ -7,6 +7,7 @@ import { type Character } from "@/lib/types";
 import { Avatar } from "./Avatar";
 import { CharacterEditor } from "./CharacterEditor";
 import { Paperdoll } from "./Paperdoll";
+import { SetsList } from "./SetsList";
 import { StatsGrid } from "./StatsGrid";
 
 interface Props {
@@ -132,6 +133,7 @@ export function CharacterSheet({ character, onClose, onChanged }: Props) {
 
           </div>
           <div>
+        <SetsList sets={p.sets} />
         <h3>Caractéristiques</h3>
         <StatsGrid stats={p.stats} />
 

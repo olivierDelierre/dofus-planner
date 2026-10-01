@@ -14,6 +14,7 @@ import {
 } from "@/lib/types";
 import { ItemPicker, type ItemHit } from "./ItemPicker";
 import { Paperdoll } from "./Paperdoll";
+import { SetsList } from "./SetsList";
 import { StatsGrid } from "./StatsGrid";
 
 interface Breed {
@@ -298,9 +299,10 @@ export function CharacterEditor({ existing, onClose, onSaved }: Props) {
 
         {preview && (
           <>
+            <SetsList sets={preview.sets} />
             <h3>Caractéristiques totales</h3>
             <StatsGrid stats={preview.stats} />
-            <p className="muted small-note">PV et PA de base estimés d&apos;après le niveau ; bonus d&apos;équipement au jet maximum.</p>
+            <p className="muted small-note">PV et PA de base estimés d&apos;après le niveau ; bonus d&apos;équipement et de panoplie au jet maximum.</p>
           </>
         )}
 

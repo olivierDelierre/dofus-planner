@@ -145,6 +145,7 @@ export async function searchItems(slot: string, query: string, maxLevel?: number
 
 export interface ItemDetail extends ItemHit {
   type: string;
+  setId?: number;
   /** Effets avec leur valeur retenue (maximum du jet) quand ce sont des bonus chiffrés. */
   effects: { label: string; value: number; text: string }[];
 }
@@ -168,6 +169,7 @@ export async function getItemDetail(id: number): Promise<ItemDetail | null> {
       type: { name: string };
       image_urls?: { icon?: string; sd?: string };
       effects?: DudeEffect[];
+      parent_set?: { id: number; name: string };
     } | null>,
     cachedFetchJson(`${DOFUSDB}/items?id=${id}&$select[]=id&$select[]=iconId&$select[]=level&$select[]=name`).catch(
       () => null,
@@ -187,6 +189,7 @@ export async function getItemDetail(id: number): Promise<ItemDetail | null> {
     name: dude?.name ?? fr(row?.name),
     level: dude?.level ?? row?.level ?? 0,
     type: dude?.type.name ?? "",
+    setId: dude?.parent_set?.id,
     icon: row?.iconId ? dofusdbItemIcon(row.iconId) : (dude?.image_urls?.sd ?? ""),
     effects,
   };
@@ -243,4 +246,57 @@ export async function getBreeds(): Promise<BreedInfo[]> {
     symbol: `${DOFUSDB}/img/breeds/symbol_${b.id}.png`,
     heads: { m: b.heads?.male ?? "", f: b.heads?.female ?? "" },
   }));
+}
+
+// ---------- Panoplies ----------
+
+export interface SetBonus {
+  label: string;
+  value: number;
+  text: string;
+}
+
+export interface SetInfo {
+  id: number;
+  name: string;
+  /** Nombre total de pièces de la panoplie. */
+  size: number;
+  /** Bonus cumulés selon le nombre de pièces portées (clé = nombre de pièces). */
+  bonuses: Record<number, SetBonus[]>;
+}
+
+const SET_TTL = 60 * 24 * 3600 * 1000; // les panoplies changent rarement : cache de 60 jours
+
+/**
+ * Panoplie par identifiant. Récupérée une seule fois sur DofusDude puis relue depuis le cache disque
+ * du serveur (data/cache/), donc pas de scraping à chaque calcul.
+ */
+export async function getSet(id: number): Promise<SetInfo | null> {
+  const raw = (await cachedFetchJson(`${DOFUSDUDE}/sets/${id}`, SET_TTL).catch(() => null)) as {
+    name?: string;
+    equipment_ids?: number[];
+    effects?: Record<string, DudeEffect[] | null>;
+  } | null;
+  if (!raw?.name) return null;
+  const bonuses: Record<number, SetBonus[]> = {};
+  for (const [count, effects] of Object.entries(raw.effects ?? {})) {
+    if (!effects) continue;
+    bonuses[Number(count)] = effects
+      .filter((e) => !NON_STAT.test(e.type.name))
+      .map((e) => ({
+        label: e.type.name,
+        value: !e.ignore_int_max && e.int_maximum >= e.int_minimum ? e.int_maximum : e.int_minimum,
+        text: e.formatted,
+      }));
+  }
+  return { id, name: raw.name, size: raw.equipment_ids?.length ?? 0, bonuses };
+}
+
+/** Bonus applicable pour `count` pièces : l'entrée exacte, ou la plus haute en dessous. */
+export function setBonusFor(set: Pick<SetInfo, "bonuses">, count: number): SetBonus[] {
+  const keys = Object.keys(set.bonuses)
+    .map(Number)
+    .filter((k) => k <= count)
+    .sort((a, b) => b - a);
+  return keys.length ? set.bonuses[keys[0]] : [];
 }
