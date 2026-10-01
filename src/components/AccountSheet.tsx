@@ -132,6 +132,9 @@ export function AccountSheet({ profile, onClose, onLoggedOut }: Props) {
         >
           Se déconnecter
         </button>
+        <p className="muted small-note" style={{ marginTop: 16, textAlign: "center" }}>
+          Version : {process.env.NEXT_PUBLIC_BUILD_ID ?? "inconnue"}
+        </p>
       </div>
     </div>
   );

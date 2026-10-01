@@ -1122,28 +1122,6 @@ label.inline {
   font-weight: 600;
   line-height: 1.2;
 }
-.stepper {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.stepper button {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  font-size: 16px;
-  cursor: pointer;
-}
-.stepper button:disabled {
-  opacity: 0.35;
-}
-.stepper b {
-  min-width: 18px;
-  text-align: center;
-}
 .editor-actions {
   position: sticky;
   bottom: -24px;
