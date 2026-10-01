@@ -7,7 +7,11 @@
  * Les réponses sont renvoyées à Claude sous forme de JSON allégé : on ne mappe pas
  * champ par champ pour rester robuste aux évolutions de schéma des API.
  */
+import { type ClassSpell, type SpellGrade, type SpellVersion } from "./spells";
 import { cachedFetchJson } from "./storage";
+
+/** Données de jeu stables (sorts, panoplies) : cache de 60 jours. */
+const LONG_TTL = 60 * 24 * 3600 * 1000;
 
 const DOFUSDUDE = "https://api.dofusdu.de/dofus3/v1/fr";
 const DOFUSDB = "https://api.dofusdb.fr";
@@ -195,38 +199,96 @@ export async function getItemDetail(id: number): Promise<ItemDetail | null> {
   };
 }
 
-export interface SpellInfo {
+interface DbSpell {
   id: number;
-  name: string;
-  description: string;
-  icon: string;
-  maxLevel: number;
+  typeId?: number;
+  iconId: number;
+  name: I18n;
+  description: I18n;
+  spellLevels?: number[];
 }
 
-export async function getBreedSpells(classId: number): Promise<SpellInfo[]> {
-  const breed = (await cachedFetchJson(`${DOFUSDB}/breeds?id=${classId}&$select[]=breedSpellsId`)) as {
-    data?: { breedSpellsId?: number[] }[];
-  };
-  const ids = breed.data?.[0]?.breedSpellsId ?? [];
-  if (ids.length === 0) return [];
-  const params = new URLSearchParams({ $limit: "60" });
-  ids.forEach((id) => params.append("id[$in][]", String(id)));
-  for (const f of ["id", "iconId", "name", "description", "spellLevels"]) params.append("$select[]", f);
-  const res = (await cachedFetchJson(`${DOFUSDB}/spells?${params}`)) as {
-    data?: { id: number; iconId: number; name: I18n; description: I18n; spellLevels?: number[] }[];
-  };
-  const byId = new Map((res.data ?? []).map((s) => [s.id, s]));
-  // Ordre d'origine : celui de la barre de sorts de la classe.
-  return ids
-    .map((id) => byId.get(id))
-    .filter((s): s is NonNullable<typeof s> => !!s)
-    .map((s) => ({
-      id: s.id,
-      name: fr(s.name),
-      description: fr(s.description),
-      icon: dofusdbSpellIcon(s.iconId),
-      maxLevel: Math.min(6, Math.max(1, s.spellLevels?.length ?? 1)),
-    }));
+interface DbSpellLevel {
+  spellId: number;
+  grade: number;
+  minPlayerLevel?: number;
+  apCost?: number;
+  minRange?: number;
+  range?: number;
+  minCastInterval?: number;
+  globalCooldown?: number;
+  maxCastPerTurn?: number;
+  criticalHitProbability?: number;
+}
+
+const LEVEL_FIELDS = [
+  "spellId", "grade", "minPlayerLevel", "apCost", "minRange", "range", "minCastInterval",
+  "globalCooldown", "maxCastPerTurn", "criticalHitProbability",
+];
+
+/** Grades (niveaux) de tous les sorts donnés, récupérés par paquets de 50 (limite de DofusDB). */
+async function fetchGrades(levelIds: number[]): Promise<Map<number, SpellGrade[]>> {
+  const out = new Map<number, SpellGrade[]>();
+  for (let i = 0; i < levelIds.length; i += 50) {
+    const params = new URLSearchParams({ $limit: "50" });
+    levelIds.slice(i, i + 50).forEach((id) => params.append("id[$in][]", String(id)));
+    for (const f of LEVEL_FIELDS) params.append("$select[]", f);
+    const res = (await cachedFetchJson(`${DOFUSDB}/spell-levels?${params}`, LONG_TTL)) as { data?: DbSpellLevel[] };
+    for (const l of res.data ?? []) {
+      const list = out.get(l.spellId) ?? [];
+      list.push({
+        grade: l.grade,
+        minLevel: l.minPlayerLevel ?? 1,
+        apCost: l.apCost ?? 0,
+        minRange: l.minRange ?? 0,
+        range: l.range ?? 0,
+        cooldown: Math.max(l.minCastInterval ?? 0, l.globalCooldown ?? 0),
+        maxPerTurn: l.maxCastPerTurn ?? 0,
+        crit: l.criticalHitProbability ?? 0,
+      });
+      out.set(l.spellId, list);
+    }
+  }
+  for (const list of out.values()) list.sort((a, b) => a.grade - b.grade);
+  return out;
+}
+
+/**
+ * Sorts d'une classe avec leur variante et leurs grades. Les niveaux sont ceux du jeu : le grade d'un
+ * sort se déduit du niveau du personnage (voir `spellGrade`). Mis en cache sur disque.
+ */
+export async function getClassSpells(classId: number): Promise<ClassSpell[]> {
+  const [breed, variants] = await Promise.all([
+    cachedFetchJson(`${DOFUSDB}/breeds?id=${classId}&$select[]=breedSpellsId`, LONG_TTL) as Promise<{
+      data?: { breedSpellsId?: number[] }[];
+    }>,
+    cachedFetchJson(`${DOFUSDB}/spell-variants?breedId=${classId}&$limit=50`, LONG_TTL) as Promise<{
+      data?: { spellIds: number[]; spells: DbSpell[] }[];
+    }>,
+  ]);
+  const order = breed.data?.[0]?.breedSpellsId ?? [];
+  const pairs = new Map<number, DbSpell[]>(); // id du sort de base -> [base, variante?]
+  for (const v of variants.data ?? []) {
+    const baseId = v.spellIds.find((id) => order.includes(id)) ?? v.spellIds[0];
+    const base = v.spells.find((s) => s.id === baseId);
+    const variant = v.spells.find((s) => s.id !== baseId);
+    if (base) pairs.set(baseId, variant ? [base, variant] : [base]);
+  }
+  const grades = await fetchGrades([...pairs.values()].flat().flatMap((s) => s.spellLevels ?? []));
+
+  const version = (s: DbSpell): SpellVersion => ({
+    id: s.id,
+    name: fr(s.name),
+    description: fr(s.description),
+    icon: dofusdbSpellIcon(s.iconId),
+    grades: grades.get(s.id) ?? [],
+  });
+  return order
+    .filter((id) => pairs.has(id))
+    .map((id) => {
+      const [base, variant] = pairs.get(id)!;
+      return { id, base: version(base), variant: variant ? version(variant) : null };
+    });
 }
 
 export interface BreedInfo {
@@ -265,14 +327,13 @@ export interface SetInfo {
   bonuses: Record<number, SetBonus[]>;
 }
 
-const SET_TTL = 60 * 24 * 3600 * 1000; // les panoplies changent rarement : cache de 60 jours
 
 /**
  * Panoplie par identifiant. Récupérée une seule fois sur DofusDude puis relue depuis le cache disque
  * du serveur (data/cache/), donc pas de scraping à chaque calcul.
  */
 export async function getSet(id: number): Promise<SetInfo | null> {
-  const raw = (await cachedFetchJson(`${DOFUSDUDE}/sets/${id}`, SET_TTL).catch(() => null)) as {
+  const raw = (await cachedFetchJson(`${DOFUSDUDE}/sets/${id}`, LONG_TTL).catch(() => null)) as {
     name?: string;
     equipment_ids?: number[];
     effects?: Record<string, DudeEffect[] | null>;

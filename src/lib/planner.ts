@@ -12,8 +12,9 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat, betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
 import { fetchDplnGuide } from "./dpln";
-import { searchGuides } from "./guide-search";
-import { searchDungeons, searchEquipment, searchMonsters, searchSets, toToolResult } from "./gamedata";
+import { normalize, searchGuides } from "./guide-search";
+import { rangeText, type SpellVersion } from "./spells";
+import { getBreeds, getClassSpells, searchDungeons, searchEquipment, searchMonsters, searchSets, toToolResult } from "./gamedata";
 import { clampStars, baselineScore } from "./score";
 import { listGuides, loadGuide } from "./storage";
 import { PlanSchema, type Character, type Encounter, type ModelId, type PlanResponse } from "./types";
@@ -109,6 +110,26 @@ function makeResearchTools(progress: ProgressFn) {
       ),
     }),
     betaZodTool({
+      name: "get_class_spells",
+      description:
+        "Tous les sorts d'une classe Dofus 3 : version de base ET variante, avec description, coûts (PA), portée, relance et niveau de personnage requis pour chaque grade. " +
+        "À utiliser pour proposer des changements de variantes ou de sorts réellement disponibles au niveau du personnage.",
+      inputSchema: z.object({ className: z.string().describe("Nom de la classe, ex. « Iop », « Crâ », « Xélor »") }),
+      run: step(
+        progress,
+        ({ className }) => `Consultation des sorts de la classe ${className}`,
+        async ({ className }) => {
+          const breed = (await getBreeds()).find((b) => normalize(b.name) === normalize(className));
+          if (!breed) return `Classe inconnue : ${className}`;
+          const spells = await getClassSpells(breed.id);
+          const line = (v: SpellVersion, tag: string) =>
+            `  ${tag} ${v.name} — ${v.description || "(pas de description)"} | ` +
+            v.grades.map((g) => `niv.${g.minLevel}: ${g.apCost} PA, portée ${rangeText(g)}${g.cooldown ? `, relance ${g.cooldown}` : ""}`).join(" ; ");
+          return spells.map((cs) => [line(cs.base, "•"), cs.variant ? line(cs.variant, "↔ variante :") : null].filter(Boolean).join("\n")).join("\n");
+        },
+      ),
+    }),
+    betaZodTool({
       name: "search_monsters",
       description: "Cherche des monstres Dofus 3 par nom (DofusDB) : niveaux, PV, résistances, sorts.",
       inputSchema: z.object({ query: z.string() }),
@@ -156,7 +177,8 @@ const RESEARCH_SYSTEM = `Tu prépares un combat dans Dofus 3 (version Unity). To
 Démarche :
 1. Cherche d'abord dans la base locale (find_local_guides) : tous les donjons de Dofus pour les noobs y sont déjà. Si un guide correspond, lis-le (read_local_guide) et ne scrape rien.
 2. Sinon, trouve la page correspondante sur dofuspourlesnoobs.com avec web_search, puis récupère-la avec fetch_dpln_guide pour qu'elle soit sauvegardée.
-3. Complète avec les API (monstres, donjon, équipements) quand c'est utile pour les résistances, PV et niveaux.
+3. Pour proposer des variantes ou des sorts, consulte les sorts de la classe avec get_class_spells (les sorts de l'équipe sont déjà décrits ci-dessous, mais pas l'alternative de chaque sort ni les grades).
+4. Complète avec les API (monstres, donjon, équipements) quand c'est utile pour les résistances, PV et niveaux.
 
 Termine par des notes de recherche en français : niveau du combat, salles, monstres et boss (résistances, sorts dangereux), mécaniques obligatoires, stratégies recommandées par le guide, et sources utilisées.
 Distingue clairement ce qui vient des sources et ce que tu supposes. Si une source échoue, dis-le au lieu d'inventer.`;
@@ -170,19 +192,28 @@ Pour chaque personnage, propose des changements concrets (variantes de sorts, é
 Le score de confiance part du score de base fourni : écarte-t'en seulement avec une justification (mécanique punitive, équipe très adaptée, etc.).
 Liste honnêtement les informations manquantes. Dans la liste des sources, ajoute « (non vérifié) » à toute source qui n'est ni un guide Dofus pour les noobs ni une API de données du jeu, et signale-la aussi dans les informations incertaines. Réponds en français.`;
 
+function describeSpell(s: Character["profile"]["spells"][number]): string {
+  const state = s.level ? `niv. ${s.level}` : s.unlockedAt ? `pas encore débloqué, niv. ${s.unlockedAt} requis` : "non débloqué";
+  const facts = [s.ap !== undefined ? `${s.ap} PA` : null, s.range ? `portée ${s.range}` : null, s.cooldown ? `relance ${s.cooldown}` : null]
+    .filter(Boolean)
+    .join(", ");
+  const alt = s.alt ? ` [${s.variant ? "version de base" : "variante disponible"} : ${s.alt.name}${s.alt.description ? ` — ${s.alt.description}` : ""}]` : "";
+  return `- ${s.name}${s.variant ? " (variante)" : ""} (${state}${facts ? ` ; ${facts}` : ""}) : ${s.description ?? ""}${alt}`;
+}
+
 function describeTeam(team: Character[]): string {
   return team
     .map(({ profile: p, notes }) => {
       const stats = p.stats.map((s) => `${s.label} ${s.value}`).join(", ");
       const items = p.items.map((i) => `${i.slot} : ${i.name}${i.level ? ` (niv. ${i.level})` : ""}`).join(" ; ");
       const sets = p.sets.map((x) => `${x.name} ${x.count}/${x.size}${x.bonus.length ? ` (${x.bonus.join(", ")})` : ""}`).join(" ; ");
-      const spells = p.spells.map((s) => (s.level ? `${s.name} (niv. ${s.level})` : s.name)).join(", ");
+      const spells = p.spells.map(describeSpell).join("\n    ");
       return [
         `- ${p.name} : ${p.className} niveau ${p.level}, éléments ${p.elements.join("/") || "non déterminés"}`,
         stats ? `  Caractéristiques : ${stats}` : null,
         items ? `  Équipement : ${items}` : null,
         sets ? `  Panoplies : ${sets}` : null,
-        spells ? `  Sorts : ${spells}` : null,
+        spells ? `  Sorts (grade déduit du niveau ; « variante » = version alternative choisie) :\n    ${spells}` : null,
         notes ? `  Notes du joueur : ${notes}` : null,
       ]
         .filter(Boolean)

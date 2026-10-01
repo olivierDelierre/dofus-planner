@@ -48,6 +48,14 @@ Limites connues / idées :
 - Testé avec le faux serveur Anthropic (find → read → plan) ; un vrai appel à Claude n'a toujours pas été fait.
 - Travail directement sur `main` à la demande de l'utilisateur (plus de branche de fonctionnalité).
 
+## Session 5 : sorts (niveaux, variantes) et accès de Claude aux sorts
+
+- Le niveau d'un sort n'est plus saisi : `spellGrade()` (`src/lib/spells.ts`) = nombre de grades dont `minPlayerLevel` ≤ niveau du perso (DofusDB `spell-levels`, 3 grades max). Un sort pas encore appris a `level: 0` et reste affiché grisé.
+- Variantes : `getClassSpells()` (`gamedata.ts`) lit `/spell-variants?breedId=` (une variante par sort de classe), cache 60 jours. `build.spells = [{ id: sortDeBase, variant: true }]` ne contient que les variantes choisies ; une variante pas encore débloquée retombe sur le sort de base. Les anciennes saisies `{id, level}` restent valides.
+- Claude recevait seulement `Nom (niv. N)` et n'avait aucun outil pour les sorts : `describeTeam` envoie maintenant description, PA, portée, relance et l'alternative de chaque sort, et l'outil `get_class_spells` décrit toute la classe (base + variante + grades).
+- Les fiches enregistrées avant cette version gardent leurs anciens sorts jusqu'à « ↻ Actualiser ».
+- Piste non faite : dommages chiffrés par grade (`spell-levels.effects`, `diceNum`/`diceSide`).
+
 ## Encore jamais testé en conditions réelles
 
 À vérifier dès que le réseau le permet. Ces points sont aussi signalés dans le README.

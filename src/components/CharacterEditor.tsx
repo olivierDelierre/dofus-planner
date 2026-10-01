@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { gameImage, statIcon } from "@/lib/assets";
 import { classColor } from "@/lib/classes";
 import {
@@ -12,6 +12,7 @@ import {
   type CharacterProfile,
   type Slot,
 } from "@/lib/types";
+import { spellGrade, unlockLevel, type ClassSpell } from "@/lib/spells";
 import { ItemPicker, type ItemHit } from "./ItemPicker";
 import { Paperdoll } from "./Paperdoll";
 import { SetsList } from "./SetsList";
@@ -22,13 +23,6 @@ interface Breed {
   name: string;
   symbol: string;
   heads: { m: string; f: string };
-}
-interface SpellInfo {
-  id: number;
-  name: string;
-  description: string;
-  icon: string;
-  maxLevel: number;
 }
 type Picked = { itemId: number; name: string; icon: string; level: number };
 
@@ -57,7 +51,7 @@ interface Props {
 
 export function CharacterEditor({ existing, onClose, onSaved }: Props) {
   const [breeds, setBreeds] = useState<Breed[]>([]);
-  const [spellList, setSpellList] = useState<SpellInfo[]>([]);
+  const [spellList, setSpellList] = useState<ClassSpell[]>([]);
   const [name, setName] = useState(existing?.build.name ?? "");
   const [classId, setClassId] = useState<number | null>(existing?.build.classId ?? null);
   const [gender, setGender] = useState<"m" | "f">(existing?.build.gender ?? "m");
@@ -71,15 +65,15 @@ export function CharacterEditor({ existing, onClose, onSaved }: Props) {
       ]),
     ),
   );
-  const [spellLevels, setSpellLevels] = useState<Record<number, number>>(
-    Object.fromEntries((existing?.build.spells ?? []).map((s) => [s.id, s.level])),
+  // Sorts dont la variante est choisie (clé = sort de base). Le niveau de chaque sort se déduit du niveau du perso.
+  const [variants, setVariants] = useState<Record<number, boolean>>(
+    Object.fromEntries((existing?.build.spells ?? []).filter((s) => s.variant).map((s) => [s.id, true])),
   );
   const [notes, setNotes] = useState(existing?.notes ?? "");
   const [picking, setPicking] = useState<Slot | null>(null);
   const [preview, setPreview] = useState<CharacterProfile | null>(existing?.profile ?? null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const fresh = useRef(!existing);
 
   useEffect(() => {
     getJson<Breed[]>("/api/game/breeds").then(setBreeds, (e) => setError(String(e.message ?? e)));
@@ -92,14 +86,8 @@ export function CharacterEditor({ existing, onClose, onSaved }: Props) {
   useEffect(() => {
     if (classId === null) return;
     let alive = true;
-    getJson<SpellInfo[]>(`/api/game/spells?classId=${classId}`).then(
-      (list) => {
-        if (!alive) return;
-        setSpellList(list);
-        // Nouvelle classe choisie : tous les sorts au niveau 1 pour partir d'une base.
-        if (fresh.current) setSpellLevels(Object.fromEntries(list.map((s) => [s.id, 1])));
-        fresh.current = false;
-      },
+    getJson<ClassSpell[]>(`/api/game/spells?classId=${classId}`).then(
+      (list) => alive && setSpellList(list),
       (e) => alive && setError(String(e.message ?? e)),
     );
     return () => {
@@ -116,11 +104,11 @@ export function CharacterEditor({ existing, onClose, onSaved }: Props) {
       level,
       base,
       items: SLOTS.flatMap((slot) => (items[slot] ? [{ slot, itemId: items[slot]!.itemId }] : [])),
-      spells: Object.entries(spellLevels)
-        .filter(([, l]) => l > 0)
-        .map(([id, l]) => ({ id: Number(id), level: l })),
+      spells: Object.entries(variants)
+        .filter(([, v]) => v)
+        .map(([id]) => ({ id: Number(id), variant: true })),
     };
-  }, [name, classId, gender, level, base, items, spellLevels]);
+  }, [name, classId, gender, level, base, items, variants]);
 
   // Aperçu des caractéristiques calculées côté serveur (après une courte pause de saisie).
   useEffect(() => {
@@ -191,8 +179,7 @@ export function CharacterEditor({ existing, onClose, onSaved }: Props) {
               style={{ "--c": classColor(b.name) } as React.CSSProperties}
               onClick={() => {
                 if (b.id !== classId) {
-                  fresh.current = true;
-                  setSpellLevels({});
+                  setVariants({});
                   setClassId(b.id);
                 }
               }}
@@ -275,21 +262,39 @@ export function CharacterEditor({ existing, onClose, onSaved }: Props) {
           <p className="muted">Chargement des sorts…</p>
         ) : (
           <div className="spells">
-            {spellList.map((s) => {
-              const lv = spellLevels[s.id] ?? 0;
+            {spellList.map((cs) => {
+              const wantsVariant = !!variants[cs.id] && !!cs.variant && spellGrade(cs.variant.grades, level) > 0;
+              const chosen = wantsVariant ? cs.variant! : cs.base;
+              const grade = spellGrade(chosen.grades, level);
               return (
-                <div key={s.id} className={lv > 0 ? "spell on" : "spell"}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={gameImage(s.icon)} alt="" loading="lazy" title={s.description} />
-                  <span className="spell-name">{s.name}</span>
-                  <div className="stepper">
-                    <button aria-label={`Baisser ${s.name}`} disabled={lv <= 0} onClick={() => setSpellLevels({ ...spellLevels, [s.id]: lv - 1 })}>
-                      −
-                    </button>
-                    <b>{lv || "—"}</b>
-                    <button aria-label={`Monter ${s.name}`} disabled={lv >= s.maxLevel} onClick={() => setSpellLevels({ ...spellLevels, [s.id]: lv + 1 })}>
-                      +
-                    </button>
+                <div key={cs.id} className={grade > 0 ? "spell on" : "spell"}>
+                  <div className="spell-pick" role="radiogroup" aria-label={`Version de ${cs.base.name}`}>
+                    {[cs.base, cs.variant].map((v, i) => {
+                      if (!v) return null;
+                      const locked = spellGrade(v.grades, level) === 0;
+                      const selected = (i === 1) === wantsVariant;
+                      return (
+                        <button
+                          key={v.id}
+                          role="radio"
+                          aria-checked={selected}
+                          className={selected ? "on" : ""}
+                          disabled={i === 1 && locked}
+                          title={`${v.name}${i === 1 ? " (variante)" : ""}${locked ? ` — débloqué au niveau ${unlockLevel(v.grades)}` : ""}\n${v.description}`}
+                          onClick={() => setVariants({ ...variants, [cs.id]: i === 1 })}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={gameImage(v.icon)} alt={v.name} loading="lazy" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="spell-info">
+                    <span className="spell-name">{chosen.name}</span>
+                    <span className="spell-sub">
+                      {wantsVariant ? "variante · " : ""}
+                      {grade > 0 ? `niv. ${grade}` : `débloqué au niv. ${unlockLevel(chosen.grades) ?? "?"}`}
+                    </span>
                   </div>
                 </div>
               );

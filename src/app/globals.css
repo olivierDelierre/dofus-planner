@@ -1092,7 +1092,7 @@ label.inline {
 }
 .spells {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 8px;
 }
 .spell {
@@ -1117,6 +1117,7 @@ label.inline {
   object-fit: contain;
 }
 .spell-name {
+  overflow-wrap: anywhere;
   font-size: 12.5px;
   font-weight: 600;
   line-height: 1.2;
@@ -1436,4 +1437,65 @@ label.inline {
 }
 .set p {
   margin: 4px 0 0;
+}
+
+/* ---------- Sorts : choix de la variante ---------- */
+.spell {
+  grid-template-columns: auto 1fr;
+}
+.spell-pick {
+  display: flex;
+  gap: 4px;
+  grid-row: 1 / span 2;
+}
+.spell-pick button {
+  position: relative;
+  padding: 2px;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background: var(--surface);
+  cursor: pointer;
+  opacity: 0.55;
+}
+.spell-pick button.on {
+  opacity: 1;
+  border-color: var(--accent);
+}
+.spell-pick button:disabled {
+  cursor: not-allowed;
+  opacity: 0.25;
+}
+.spell-pick img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.spell-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  grid-row: 1 / span 2;
+  grid-column: 2;
+}
+.spell-sub {
+  font-size: 11px;
+  color: var(--muted);
+}
+.spell-icon.locked {
+  opacity: 0.45;
+}
+.variant-tag {
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--el-air, #4fbf73);
+  color: #fff;
 }

@@ -142,10 +142,15 @@ export function CharacterSheet({ character, onClose, onChanged }: Props) {
             <h3>Sorts</h3>
             <div className="spell-icons">
               {p.spells.map((s) => (
-                <button key={s.id} className="spell-icon" title={s.description} onClick={() => setDetail(`spell:${s.id}`)}>
+                <button
+                  key={s.baseId ?? s.id}
+                  className={s.level === 0 ? "spell-icon locked" : "spell-icon"}
+                  onClick={() => setDetail(detail === `spell:${s.id}` ? null : `spell:${s.id}`)}
+                >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={gameImage(s.icon)} alt={s.name} loading="lazy" />
                   {s.level ? <b>{s.level}</b> : null}
+                  {s.variant && <i className="variant-tag">V</i>}
                   <span>{s.name}</span>
                 </button>
               ))}
@@ -153,18 +158,33 @@ export function CharacterSheet({ character, onClose, onChanged }: Props) {
             {detail?.startsWith("spell:") &&
               (() => {
                 const s = p.spells.find((x) => `spell:${x.id}` === detail);
-                return s ? (
+                if (!s) return null;
+                const facts = [
+                  s.ap !== undefined ? `${s.ap} PA` : null,
+                  s.range ? `portée ${s.range}` : null,
+                  s.cooldown ? `relance ${s.cooldown} tour${s.cooldown > 1 ? "s" : ""}` : null,
+                ].filter(Boolean);
+                return (
                   <div className="detail">
                     <strong>
-                      {s.name} {s.level ? `· niveau ${s.level}` : ""}
+                      {s.name}
+                      {s.variant ? " · variante" : ""}
+                      {s.level ? ` · niveau ${s.level}` : s.unlockedAt ? ` · débloqué au niveau ${s.unlockedAt}` : ""}
                     </strong>
+                    {facts.length > 0 && <p>{facts.join(" · ")}</p>}
                     <p>{s.description}</p>
+                    {s.alt && (
+                      <p>
+                        <em>{s.variant ? "Version de base" : "Variante"} : </em>
+                        {s.alt.name}
+                        {s.alt.description ? ` — ${s.alt.description}` : ""}
+                      </p>
+                    )}
                   </div>
-                ) : null;
+                );
               })()}
           </>
         )}
-
           </div>
         </div>
 

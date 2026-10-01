@@ -2,7 +2,8 @@
  * Construction d'une fiche de personnage à partir de la saisie (classe, niveau, points, objets, sorts).
  * Les noms, icônes et effets viennent des API du jeu ; les caractéristiques totales sont calculées ici.
  */
-import { getBreedSpells, getBreeds, getItemDetail, getSet, setBonusFor } from "./gamedata";
+import { getBreeds, getClassSpells, getItemDetail, getSet, setBonusFor } from "./gamedata";
+import { gradeStats, rangeText, spellGrade, unlockLevel, type ClassSpell } from "./spells";
 import { BASE_STATS, type BaseStat, type BuildInput, type CharacterProfile } from "./types";
 
 export interface Bonus {
@@ -81,10 +82,45 @@ export function computeStats(
   return { stats, elements };
 }
 
+/**
+ * Sorts du personnage : tous les sorts de la classe, en version de base ou en variante selon le choix.
+ * Le grade se déduit du niveau du personnage ; une variante pas encore débloquée retombe sur la version de base.
+ */
+export function buildSpells(
+  classSpells: ClassSpell[],
+  choices: { id: number; variant?: boolean }[],
+  level: number,
+): CharacterProfile["spells"] {
+  const wantsVariant = new Set(choices.filter((c) => c.variant).map((c) => c.id));
+  return classSpells.map((cs) => {
+    const useVariant = wantsVariant.has(cs.id) && !!cs.variant && spellGrade(cs.variant.grades, level) > 0;
+    const chosen = useVariant ? cs.variant! : cs.base;
+    const other = useVariant ? cs.base : cs.variant;
+    const grade = spellGrade(chosen.grades, level);
+    const stats = gradeStats(chosen.grades, grade);
+    return {
+      id: chosen.id,
+      baseId: cs.id,
+      name: chosen.name,
+      level: grade,
+      icon: chosen.icon,
+      description: chosen.description,
+      variant: useVariant,
+      unlockedAt: unlockLevel(chosen.grades),
+      ap: stats?.apCost,
+      range: stats ? rangeText(stats) : undefined,
+      cooldown: stats?.cooldown || undefined,
+      alt: other
+        ? { name: other.name, icon: other.icon, description: other.description, unlockedAt: unlockLevel(other.grades) }
+        : undefined,
+    };
+  });
+}
+
 export class BuildError extends Error {}
 
 export async function buildProfile(input: BuildInput): Promise<CharacterProfile> {
-  const [breeds, spellList] = await Promise.all([getBreeds(), getBreedSpells(input.classId)]);
+  const [breeds, spellList] = await Promise.all([getBreeds(), getClassSpells(input.classId)]);
   const breed = breeds.find((b) => b.id === input.classId);
   if (!breed) throw new BuildError("Classe inconnue");
 
@@ -111,17 +147,7 @@ export async function buildProfile(input: BuildInput): Promise<CharacterProfile>
     for (const e of d.effects) bonuses.push({ label: e.label, value: e.value });
   });
 
-  const known = new Map(spellList.map((s) => [s.id, s]));
-  const levels = new Map(input.spells.map((s) => [s.id, s.level]));
-  const spells: CharacterProfile["spells"] = spellList
-    .filter((s) => levels.has(s.id))
-    .map((s) => ({
-      id: s.id,
-      name: s.name,
-      level: Math.min(levels.get(s.id)!, known.get(s.id)!.maxLevel),
-      icon: s.icon,
-      description: s.description,
-    }));
+  const spells = buildSpells(spellList, input.spells, input.level);
 
   // Panoplies : un bonus s'applique dès 2 pièces d'une même panoplie.
   const perSet = new Map<number, number>();

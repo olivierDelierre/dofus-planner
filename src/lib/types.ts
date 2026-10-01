@@ -51,7 +51,10 @@ export const BuildInputSchema = z.object({
   /** Points investis dans chaque caractéristique (capital + parchemins), hors équipement. */
   base: z.object(Object.fromEntries(BASE_STATS.map((k) => [k, z.number().int().min(0).max(2000)])) as Record<BaseStat, z.ZodNumber>),
   items: z.array(z.object({ slot: z.enum(SLOTS), itemId: z.number().int() })).max(SLOTS.length),
-  spells: z.array(z.object({ id: z.number().int(), level: z.number().int().min(1).max(6) })).max(60),
+  /** Sorts dont la variante est choisie (les autres restent en version de base). Le niveau se déduit du niveau du perso. */
+  spells: z
+    .array(z.object({ id: z.number().int(), variant: z.boolean().default(false), level: z.number().int().optional() }))
+    .max(60),
 });
 export type BuildInput = z.infer<typeof BuildInputSchema>;
 
@@ -93,11 +96,29 @@ export const ProfileSchema = z.object({
     .default([]),
   spells: z.array(
     z.object({
+      /** Identifiant du sort effectivement choisi (version de base ou variante). */
       id: z.number().int(),
+      /** Identifiant du sort de base de la classe (même valeur que `id` hors variante). */
+      baseId: z.number().int().optional(),
       name: z.string(),
+      /** Grade déduit du niveau du personnage ; 0 = pas encore débloqué. */
       level: z.number().int().optional(),
       icon: z.string().optional(),
       description: z.string().optional(),
+      variant: z.boolean().default(false),
+      unlockedAt: z.number().int().optional(),
+      ap: z.number().optional(),
+      range: z.string().optional(),
+      cooldown: z.number().optional(),
+      /** L'autre version du sort (la variante si on joue l'original, et inversement). */
+      alt: z
+        .object({
+          name: z.string(),
+          icon: z.string().optional(),
+          description: z.string().optional(),
+          unlockedAt: z.number().int().optional(),
+        })
+        .optional(),
     }),
   ),
 });
