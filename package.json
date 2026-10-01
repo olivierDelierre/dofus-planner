@@ -8,6 +8,7 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "scrape": "tsx scripts/scrape.ts",
+    "scrape:dungeons": "tsx scripts/scrape-dungeons.ts",
     "test": "tsx --test tests/*.test.ts"
   },
   "repository": {

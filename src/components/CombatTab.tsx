@@ -6,16 +6,8 @@ import { Avatar } from "./Avatar";
 import { PlanView } from "./PlanView";
 import { ProgressView, type ProgressStep } from "./ProgressView";
 
-// Simples suggestions : on peut saisir n'importe quel combat.
-const SUGGESTIONS = [
-  "Donjon des Bouftous",
-  "Donjon des Larves",
-  "Donjon des Tofus",
-  "Donjon des Scarafeuilles",
-  "Donjon des Champs",
-  "Donjon des Forgerons",
-  "Bandits de Cania",
-];
+// Suggestions de repli ; la liste réelle vient des guides locaux. On peut saisir n'importe quel combat.
+const FALLBACK_SUGGESTIONS = ["Bandits de Cania"];
 
 const KINDS: { id: Encounter["kind"]; label: string }[] = [
   { id: "donjon", label: "Donjon" },
@@ -38,6 +30,19 @@ export function CombatTab({ team, onUnauthorized, onPlanSaved, onGoToTeam }: Pro
   const [error, setError] = useState<string | null>(null);
   const [current, setCurrent] = useState<PlanRecord | null>(null);
   const [progress, setProgress] = useState<{ startedAt: number; steps: ProgressStep[] } | null>(null);
+
+  const [suggestions, setSuggestions] = useState<string[]>(FALLBACK_SUGGESTIONS);
+
+  // Noms des guides locaux (tous les donjons) pour l'autocomplétion.
+  useEffect(() => {
+    fetch("/api/guides")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((guides: { title: string; label?: string }[]) => {
+        const names = guides.map((g) => g.label ?? g.title);
+        setSuggestions([...new Set([...names, ...FALLBACK_SUGGESTIONS])].sort((a, b) => a.localeCompare(b, "fr")));
+      })
+      .catch(() => undefined);
+  }, []);
 
   // Retire de la sélection les persos supprimés par un autre profil.
   useEffect(() => {
@@ -112,7 +117,7 @@ export function CombatTab({ team, onUnauthorized, onPlanSaved, onGoToTeam }: Pro
             onChange={(e) => setEncounter({ ...encounter, name: e.target.value })}
           />
           <datalist id="encounters">
-            {SUGGESTIONS.map((s) => (
+            {suggestions.map((s) => (
               <option key={s} value={s} />
             ))}
           </datalist>
@@ -129,6 +134,24 @@ export function CombatTab({ team, onUnauthorized, onPlanSaved, onGoToTeam }: Pro
             </button>
           ))}
         </div>
+        <details open={!!encounter.lookup}>
+          <summary>Combat introuvable ? Décris-le à Claude</summary>
+          <div className="stack" style={{ marginTop: 8 }}>
+            <label>
+              Que doit chercher Claude ?
+              <textarea
+                placeholder="Ex. : le boss de la quête « … » à Pandala, niveau ~150, on ne trouve pas son nom exact"
+                maxLength={1000}
+                value={encounter.lookup ?? ""}
+                onChange={(e) => setEncounter({ ...encounter, lookup: e.target.value || undefined })}
+              />
+            </label>
+            <p className="muted small-note">
+              Claude cherche d&apos;abord dans la base locale et sur Dofus pour les noobs, puis sur le web. Les infos
+              venant d&apos;ailleurs sont marquées « non vérifié ».
+            </p>
+          </div>
+        </details>
         <details>
           <summary>Options (niveau, guide, notes)</summary>
           <div className="stack" style={{ marginTop: 8 }}>

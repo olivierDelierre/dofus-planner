@@ -41,6 +41,13 @@ Limites connues / idées :
 - Pas de contrôle que l'objet correspond bien à l'emplacement côté serveur (l'éditeur ne propose que les bons types) ; familiers sans stats (absents de DofusDude).
 - Fusionner `refonte-mobile-dofusbook` dans `main` après validation par l'utilisateur.
 
+## Session 4 : base de donjons et champ libre
+
+- Extracteur dpln corrigé (il renvoyait ~300 caractères sur les vraies pages) ; 151 donjons scrapés dans `data/guides/` (2,6 Mo, versionnés ; seul « Caverne des Bulbes » est un stub côté site). Plafond de contenu à 90 000 caractères.
+- Outil Claude `find_local_guides` ; `Encounter.lookup` (champ libre) active le `web_search` ouvert (6 usages) et la consigne « non vérifié ». Panneau Guides : synchronisation NDJSON, filtre.
+- Testé avec le faux serveur Anthropic (find → read → plan) ; un vrai appel à Claude n'a toujours pas été fait.
+- Travail directement sur `main` à la demande de l'utilisateur (plus de branche de fonctionnalité).
+
 ## Encore jamais testé en conditions réelles
 
 À vérifier dès que le réseau le permet. Ces points sont aussi signalés dans le README.

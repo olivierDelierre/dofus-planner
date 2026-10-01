@@ -10,7 +10,7 @@ import { loadGuide, saveGuide, toSlug } from "./storage";
 import type { GuideFile } from "./types";
 
 const ALLOWED_HOSTS = new Set(["dofuspourlesnoobs.com", "www.dofuspourlesnoobs.com"]);
-const MAX_CONTENT_CHARS = 60_000;
+const MAX_CONTENT_CHARS = 90_000;
 
 export function assertDplnUrl(raw: string): URL {
   const url = new URL(raw);
@@ -27,14 +27,17 @@ export function slugFromUrl(url: URL): string {
   return toSlug(last.replace(/\.html?$/, ""));
 }
 
-const BLOCKS = "h1, h2, h3, h4, h5, p, li, tr, div.paragraph, blockquote";
+// `tr` : seulement les vrais tableaux de données ; Weebly met aussi sa mise en page (image + texte)
+// dans des tableaux « multicol », dont on lit les paragraphes un par un.
+const BLOCKS = "h1, h2, h3, h4, h5, p, li, tr:not(.wsite-multicol-tr), div.paragraph, blockquote";
 
 /** Convertit le HTML d'une page en texte Markdown léger. */
 export function extractGuide(html: string): { title: string; content: string } {
   const $ = cheerio.load(html);
-  $("script, style, noscript, iframe, nav, header, footer, form, svg").remove();
-  // Menus et barres latérales courants (Weebly / WordPress)
-  $("#navigation, .wsite-menu-default, .wsite-footer, .sidebar, #sidebar, .menu, .cookie").remove();
+  // Pas de `form` ici : Weebly enveloppe tout le contenu de la page dans un <form>.
+  $("script, style, noscript, iframe, nav, header, footer, svg").remove();
+  // Menus, pubs et barres latérales courants (Weebly / WordPress)
+  $("#navigation, .wsite-menu-default, .wsite-footer, .sidebar, #sidebar, .menu, .cookie, [class*='akcelo'], .wsite-spacer").remove();
 
   const title =
     $("h1").first().text().trim() ||
@@ -50,7 +53,8 @@ export function extractGuide(html: string): { title: string; content: string } {
   root.find(BLOCKS).each((_, el) => {
     const $el = $(el);
     // Évite les doublons quand un bloc est imbriqué dans un autre bloc retenu.
-    if ($el.parents(BLOCKS).length > 0) return;
+    // (on s'arrête à la racine : le gabarit du site est lui-même dans un tableau.)
+    if ($el.parentsUntil(root.get(0) as never).filter(BLOCKS).length > 0) return;
     $el.find("br").replaceWith("\n");
 
     const tag = el.tagName.toLowerCase();
@@ -94,13 +98,24 @@ export function extractGuide(html: string): { title: string; content: string } {
 /**
  * Récupère un guide : depuis le disque si déjà scrapé (sauf refresh), sinon depuis le site.
  */
-export async function fetchDplnGuide(rawUrl: string, opts: { refresh?: boolean } = {}): Promise<GuideFile> {
+export async function fetchDplnGuide(
+  rawUrl: string,
+  opts: { refresh?: boolean; kind?: GuideFile["kind"]; label?: string } = {},
+): Promise<GuideFile> {
   const url = assertDplnUrl(rawUrl);
   const slug = slugFromUrl(url);
 
   if (!opts.refresh) {
     const existing = await loadGuide(slug);
-    if (existing) return existing;
+    if (existing) {
+      // Un guide déjà présent reçoit le rattachement à l'index s'il lui manque.
+      if (opts.kind && (existing.kind !== opts.kind || existing.label !== opts.label)) {
+        const updated = { ...existing, kind: opts.kind, label: opts.label };
+        await saveGuide(updated);
+        return updated;
+      }
+      return existing;
+    }
   }
 
   const res = await fetch(url, {
@@ -115,7 +130,15 @@ export async function fetchDplnGuide(rawUrl: string, opts: { refresh?: boolean }
   const { title, content } = extractGuide(await res.text());
   if (content.length < 100) throw new Error(`Contenu quasi vide sur ${url.href} : la page a peut-être changé de structure`);
 
-  const guide: GuideFile = { slug, url: url.href, title, fetchedAt: new Date().toISOString(), content };
+  const guide: GuideFile = {
+    slug,
+    url: url.href,
+    title,
+    fetchedAt: new Date().toISOString(),
+    content,
+    ...(opts.kind ? { kind: opts.kind } : {}),
+    ...(opts.label ? { label: opts.label } : {}),
+  };
   await saveGuide(guide);
   return guide;
 }

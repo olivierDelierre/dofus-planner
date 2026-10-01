@@ -36,6 +36,7 @@ npm run build        # build de production (fait aussi le typecheck)
 npm run typecheck
 npm test             # tests unitaires (node:test via tsx, dossier tests/)
 npm run scrape -- <url dofuspourlesnoobs> [--refresh]
+npm run scrape:dungeons [-- --refresh]   # tous les donjons (index /donjons.html), 1 requête/s
 ```
 
 Avant chaque commit : `npx tsc --noEmit && npm test && npx next build`.
@@ -47,7 +48,8 @@ Avant chaque commit : `npx tsc --noEmit && npm test && npx next build`.
 | `src/lib/types.ts` | Schémas zod : personnage, combat, plan (sortie structurée de Claude), événements de flux |
 | `src/lib/planner.ts` | Génération en 2 phases : recherche (tool runner + web_search) puis plan structuré (`messages.parse`) |
 | `src/lib/score.ts` | Score de confiance de base, déterministe. Claude doit justifier tout écart |
-| `src/lib/dpln.ts` | Scraper Dofus pour les noobs : extraction générique HTML vers Markdown, liste blanche de domaines |
+| `src/lib/dpln.ts` | Scraper Dofus pour les noobs : extraction HTML vers Markdown, liste blanche de domaines |
+| `src/lib/dpln-index.ts`, `guide-search.ts` | Index des donjons (`/donjons.html`), synchronisation, recherche floue des guides locaux |
 | `src/lib/gamedata.ts` | DofusDude et DofusDB, avec JSON allégé pour Claude |
 | `src/lib/builder.ts` | Saisie du personnage vers fiche : résolution des objets, calcul des caractéristiques |
 | `src/lib/assets.ts` | Icônes locales (`public/game/`, via `scripts/fetch-assets.mjs`) et proxy d'images `/api/icon` |
@@ -60,6 +62,8 @@ Avant chaque commit : `npx tsc --noEmit && npm test && npx next build`.
 Données (`DATA_DIR`, par défaut `./data`, `/data` en Docker) : `profiles.json`, `session-secret.key`, `team.json`, `plans/<profileId>/`, `guides/` (le seul dossier versionné), `cache/`.
 
 ## Pièges connus
+
+- **Dofus pour les noobs (Weebly)** : tout le contenu est dans un `<form>` (ne jamais supprimer `form` avant l'extraction), les paragraphes sont des `div` sans classe dans `#wsite-content`, et la mise en page utilise des tableaux `wsite-multicol`. Les tests utilisent de vraies pages (`tests/fixtures/dpln-*.html`).
 
 - **TypeScript est figé en 5.9.** TypeScript 7 casse le chargement de `next.config.ts` avec Next 15 (`Cannot read properties of undefined (reading 'fileExists')`).
 - **API Claude** : avant de toucher `planner.ts`, charge le skill `claude-api`.

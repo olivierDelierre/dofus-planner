@@ -127,6 +127,8 @@ export const EncounterSchema = z.object({
   /** URL Dofus pour les noobs si déjà connue. */
   guideUrl: z.string().url().optional(),
   notes: z.string().optional(),
+  /** Description libre d'un combat absent de la base : Claude le cherche (guides, puis web). */
+  lookup: z.string().max(1000).optional(),
 });
 export type Encounter = z.infer<typeof EncounterSchema>;
 
@@ -205,6 +207,10 @@ export interface GuideFile {
   title: string;
   fetchedAt: string;
   content: string;
+  /** Renseigné pour les guides issus de l'index des donjons. */
+  kind?: "donjon";
+  /** Nom court dans l'index du site (« Larves », « Comte Harebourg »…), utile pour la recherche. */
+  label?: string;
 }
 
 export interface PlanRecord {

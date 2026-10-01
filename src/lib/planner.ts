@@ -12,6 +12,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat, betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
 import { fetchDplnGuide } from "./dpln";
+import { searchGuides } from "./guide-search";
 import { searchDungeons, searchEquipment, searchMonsters, searchSets, toToolResult } from "./gamedata";
 import { clampStars, baselineScore } from "./score";
 import { listGuides, loadGuide } from "./storage";
@@ -52,11 +53,29 @@ function step<T>(progress: ProgressFn, label: (input: T) => string, fn: (input: 
 function makeResearchTools(progress: ProgressFn) {
   return [
     betaZodTool({
-      name: "list_local_guides",
+      name: "find_local_guides",
       description:
-        "Liste les guides Dofus pour les noobs déjà sauvegardés en local (slug, titre, URL, date). À appeler en premier.",
+        "Cherche dans la base locale de guides Dofus pour les noobs (tous les donjons y sont déjà) par nom de combat. " +
+        "À appeler en premier : renvoie les meilleurs guides (slug, titre, URL). Si un guide correspond, lis-le avec read_local_guide sans rien scraper.",
+      inputSchema: z.object({ query: z.string().describe("Nom du donjon ou du combat, ex. « Larves », « Comte Harebourg »") }),
+      run: step(
+        progress,
+        ({ query }) => `Recherche dans la base locale : « ${query} »`,
+        async ({ query }) => {
+          const hits = searchGuides(query, await listGuides());
+          return hits.length
+            ? JSON.stringify(hits.map((g) => ({ slug: g.slug, titre: g.title, url: g.url })))
+            : "Aucun guide local ne correspond. Essaie list_local_guides, puis web_search.";
+        },
+      ),
+    }),
+    betaZodTool({
+      name: "list_local_guides",
+      description: "Liste compacte de tous les guides locaux (titre et slug), pour parcourir la base quand la recherche par nom échoue.",
       inputSchema: z.object({}),
-      run: step(progress, () => "Consultation des guides locaux", async () => JSON.stringify(await listGuides())),
+      run: step(progress, () => "Consultation des guides locaux", async () =>
+        (await listGuides()).map((g) => `${g.label ?? g.title} (${g.slug})`).join("\n"),
+      ),
     }),
     betaZodTool({
       name: "read_local_guide",
@@ -135,18 +154,21 @@ function makeResearchTools(progress: ProgressFn) {
 const RESEARCH_SYSTEM = `Tu prépares un combat dans Dofus 3 (version Unity). Ton travail dans cette phase est uniquement de rassembler des faits fiables.
 
 Démarche :
-1. Regarde d'abord les guides locaux (list_local_guides). S'il en existe un pour ce combat, lis-le.
+1. Cherche d'abord dans la base locale (find_local_guides) : tous les donjons de Dofus pour les noobs y sont déjà. Si un guide correspond, lis-le (read_local_guide) et ne scrape rien.
 2. Sinon, trouve la page correspondante sur dofuspourlesnoobs.com avec web_search, puis récupère-la avec fetch_dpln_guide pour qu'elle soit sauvegardée.
 3. Complète avec les API (monstres, donjon, équipements) quand c'est utile pour les résistances, PV et niveaux.
 
 Termine par des notes de recherche en français : niveau du combat, salles, monstres et boss (résistances, sorts dangereux), mécaniques obligatoires, stratégies recommandées par le guide, et sources utilisées.
 Distingue clairement ce qui vient des sources et ce que tu supposes. Si une source échoue, dis-le au lieu d'inventer.`;
 
+const OPEN_WEB_RULES = `Le joueur décrit un combat qui n'est peut-être pas dans la base. Cherche d'abord dans la base locale et sur dofuspourlesnoobs.com, puis, seulement si rien ne convient, sur le web.
+Pour toute information qui ne vient ni de dofuspourlesnoobs.com ni des API, cite l'URL de la source et écris « non vérifié » : les sites tiers peuvent parler d'anciennes versions du jeu (Dofus 2, Retro). Si tu ne trouves pas le combat, dis-le clairement au lieu d'inventer.`;
+
 const PLAN_SYSTEM = `Tu es un joueur expert de Dofus 3 qui conseille une équipe avant un combat.
 Appuie-toi en priorité sur les notes de recherche fournies ; quand tu utilises tes connaissances générales du jeu, reste prudent car les sorts changent à chaque mise à jour.
 Pour chaque personnage, propose des changements concrets (variantes de sorts, éléments, stuff, caractéristiques, consommables) et explique pourquoi pour CE combat. Si le personnage est déjà adapté, dis-le avec peu de changements.
 Le score de confiance part du score de base fourni : écarte-t'en seulement avec une justification (mécanique punitive, équipe très adaptée, etc.).
-Liste honnêtement les informations manquantes. Réponds en français.`;
+Liste honnêtement les informations manquantes. Dans la liste des sources, ajoute « (non vérifié) » à toute source qui n'est ni un guide Dofus pour les noobs ni une API de données du jeu, et signale-la aussi dans les informations incertaines. Réponds en français.`;
 
 function describeTeam(team: Character[]): string {
   return team
@@ -174,6 +196,7 @@ function describeEncounter(e: Encounter): string {
     `Combat : ${e.name} (${e.kind})`,
     e.level ? `Niveau indiqué par le joueur : ${e.level}` : null,
     e.guideUrl ? `Guide fourni par le joueur : ${e.guideUrl}` : null,
+    e.lookup ? `Combat à retrouver (description libre du joueur, absent de la base locale) : ${e.lookup}` : null,
     e.notes ? `Notes du joueur : ${e.notes}` : null,
   ]
     .filter(Boolean)
@@ -194,26 +217,33 @@ async function research(
   team: Character[],
   progress: ProgressFn,
 ): Promise<string> {
+  // Guides locaux probables, pour économiser un tour d'outil à Claude.
+  const local = searchGuides(encounter.name, await listGuides(), 3);
+  const localHint = local.length
+    ? `\n\nGuides locaux probables : ${local.map((g) => `${g.title} (slug ${g.slug})`).join(" ; ")}.`
+    : "\n\nAucun guide local évident pour ce nom.";
+  // Combat décrit librement : Claude peut sortir de dofuspourlesnoobs.com, en signalant la fiabilité.
+  const openWeb = !!encounter.lookup;
   const runner = getClient().beta.messages.toolRunner({
     model,
     max_tokens: 16000,
     max_iterations: 15,
     output_config: { effort: "medium" },
     ...FALLBACK_PARAMS,
-    system: RESEARCH_SYSTEM,
+    system: openWeb ? `${RESEARCH_SYSTEM}\n\n${OPEN_WEB_RULES}` : RESEARCH_SYSTEM,
     tools: [
       ...makeResearchTools(progress),
       {
         type: "web_search_20260209",
         name: "web_search",
-        max_uses: 3,
-        allowed_domains: ["dofuspourlesnoobs.com"],
+        max_uses: openWeb ? 6 : 3,
+        ...(openWeb ? {} : { allowed_domains: ["dofuspourlesnoobs.com"] }),
       },
     ],
     messages: [
       {
         role: "user",
-        content: `${describeEncounter(encounter)}\n\nÉquipe qui participera (pour orienter la recherche) :\n${describeTeam(team)}`,
+        content: `${describeEncounter(encounter)}${localHint}\n\nÉquipe qui participera (pour orienter la recherche) :\n${describeTeam(team)}`,
       },
     ],
   });
