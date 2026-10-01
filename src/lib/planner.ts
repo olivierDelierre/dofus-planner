@@ -29,73 +29,108 @@ const FALLBACK_PARAMS = {
   fallbacks: "default" as const,
 };
 
-/** Exécute un outil en renvoyant l'erreur à Claude plutôt que de faire échouer la boucle. */
-function safe<T>(fn: (input: T) => Promise<string>) {
+/** Reçoit les étapes lisibles de la génération, pour l'affichage de l'avancement. */
+export type ProgressFn = (message: string) => void;
+
+/**
+ * Exécute un outil : signale l'étape, et renvoie l'erreur à Claude plutôt que de faire
+ * échouer la boucle.
+ */
+function step<T>(progress: ProgressFn, label: (input: T) => string, fn: (input: T) => Promise<string>) {
   return async (input: T): Promise<string> => {
+    progress(label(input));
     try {
       return await fn(input);
     } catch (err) {
-      return `ERREUR : ${err instanceof Error ? err.message : String(err)}`;
+      const message = err instanceof Error ? err.message : String(err);
+      progress(`⚠ ${message}`);
+      return `ERREUR : ${message}`;
     }
   };
 }
 
-const researchTools = [
-  betaZodTool({
-    name: "list_local_guides",
-    description:
-      "Liste les guides Dofus pour les noobs déjà sauvegardés en local (slug, titre, URL, date). À appeler en premier.",
-    inputSchema: z.object({}),
-    run: safe(async () => JSON.stringify(await listGuides())),
-  }),
-  betaZodTool({
-    name: "read_local_guide",
-    description: "Lit le contenu complet d'un guide local à partir de son slug.",
-    inputSchema: z.object({ slug: z.string() }),
-    run: safe(async ({ slug }) => {
-      const guide = await loadGuide(slug);
-      return guide ? `# ${guide.title}\nSource : ${guide.url}\n\n${guide.content}` : "Guide introuvable.";
+function makeResearchTools(progress: ProgressFn) {
+  return [
+    betaZodTool({
+      name: "list_local_guides",
+      description:
+        "Liste les guides Dofus pour les noobs déjà sauvegardés en local (slug, titre, URL, date). À appeler en premier.",
+      inputSchema: z.object({}),
+      run: step(progress, () => "Consultation des guides locaux", async () => JSON.stringify(await listGuides())),
     }),
-  }),
-  betaZodTool({
-    name: "fetch_dpln_guide",
-    description:
-      "Scrape une page de dofuspourlesnoobs.com, la sauvegarde en local pour les prochaines fois et renvoie son contenu. " +
-      "Utiliser une URL trouvée via web_search ou fournie par l'utilisateur.",
-    inputSchema: z.object({
-      url: z.string().describe("URL complète sur dofuspourlesnoobs.com"),
-      refresh: z.boolean().optional().describe("Forcer un nouveau scraping même si le guide existe en local"),
+    betaZodTool({
+      name: "read_local_guide",
+      description: "Lit le contenu complet d'un guide local à partir de son slug.",
+      inputSchema: z.object({ slug: z.string() }),
+      run: step(
+        progress,
+        ({ slug }) => `Lecture du guide local « ${slug} »`,
+        async ({ slug }) => {
+          const guide = await loadGuide(slug);
+          return guide ? `# ${guide.title}\nSource : ${guide.url}\n\n${guide.content}` : "Guide introuvable.";
+        },
+      ),
     }),
-    run: safe(async ({ url, refresh }) => {
-      const guide = await fetchDplnGuide(url, { refresh });
-      return `# ${guide.title}\nSource : ${guide.url} (récupéré le ${guide.fetchedAt})\n\n${guide.content}`;
+    betaZodTool({
+      name: "fetch_dpln_guide",
+      description:
+        "Scrape une page de dofuspourlesnoobs.com, la sauvegarde en local pour les prochaines fois et renvoie son contenu. " +
+        "Utiliser une URL trouvée via web_search ou fournie par l'utilisateur.",
+      inputSchema: z.object({
+        url: z.string().describe("URL complète sur dofuspourlesnoobs.com"),
+        refresh: z.boolean().optional().describe("Forcer un nouveau scraping même si le guide existe en local"),
+      }),
+      run: step(
+        progress,
+        ({ url }) => `Récupération du guide ${url}`,
+        async ({ url, refresh }) => {
+          const guide = await fetchDplnGuide(url, { refresh });
+          return `# ${guide.title}\nSource : ${guide.url} (récupéré le ${guide.fetchedAt})\n\n${guide.content}`;
+        },
+      ),
     }),
-  }),
-  betaZodTool({
-    name: "search_monsters",
-    description: "Cherche des monstres Dofus 3 par nom (DofusDB) : niveaux, PV, résistances, sorts.",
-    inputSchema: z.object({ query: z.string() }),
-    run: safe(async ({ query }) => toToolResult(await searchMonsters(query))),
-  }),
-  betaZodTool({
-    name: "search_dungeons",
-    description: "Cherche un donjon Dofus 3 par nom (DofusDB) : niveau, salles, monstres.",
-    inputSchema: z.object({ query: z.string() }),
-    run: safe(async ({ query }) => toToolResult(await searchDungeons(query))),
-  }),
-  betaZodTool({
-    name: "search_equipment",
-    description: "Cherche un équipement Dofus 3 par nom (DofusDude) : niveau, effets, conditions.",
-    inputSchema: z.object({ query: z.string() }),
-    run: safe(async ({ query }) => toToolResult(await searchEquipment(query))),
-  }),
-  betaZodTool({
-    name: "search_sets",
-    description: "Cherche une panoplie Dofus 3 par nom (DofusDude) : items et bonus.",
-    inputSchema: z.object({ query: z.string() }),
-    run: safe(async ({ query }) => toToolResult(await searchSets(query))),
-  }),
-];
+    betaZodTool({
+      name: "search_monsters",
+      description: "Cherche des monstres Dofus 3 par nom (DofusDB) : niveaux, PV, résistances, sorts.",
+      inputSchema: z.object({ query: z.string() }),
+      run: step(
+        progress,
+        ({ query }) => `Recherche du monstre « ${query} »`,
+        async ({ query }) => toToolResult(await searchMonsters(query)),
+      ),
+    }),
+    betaZodTool({
+      name: "search_dungeons",
+      description: "Cherche un donjon Dofus 3 par nom (DofusDB) : niveau, salles, monstres.",
+      inputSchema: z.object({ query: z.string() }),
+      run: step(
+        progress,
+        ({ query }) => `Recherche du donjon « ${query} »`,
+        async ({ query }) => toToolResult(await searchDungeons(query)),
+      ),
+    }),
+    betaZodTool({
+      name: "search_equipment",
+      description: "Cherche un équipement Dofus 3 par nom (DofusDude) : niveau, effets, conditions.",
+      inputSchema: z.object({ query: z.string() }),
+      run: step(
+        progress,
+        ({ query }) => `Recherche de l'équipement « ${query} »`,
+        async ({ query }) => toToolResult(await searchEquipment(query)),
+      ),
+    }),
+    betaZodTool({
+      name: "search_sets",
+      description: "Cherche une panoplie Dofus 3 par nom (DofusDude) : items et bonus.",
+      inputSchema: z.object({ query: z.string() }),
+      run: step(
+        progress,
+        ({ query }) => `Recherche de la panoplie « ${query} »`,
+        async ({ query }) => toToolResult(await searchSets(query)),
+      ),
+    }),
+  ];
+}
 
 const RESEARCH_SYSTEM = `Tu prépares un combat dans Dofus 3 (version Unity). Ton travail dans cette phase est uniquement de rassembler des faits fiables.
 
@@ -147,7 +182,12 @@ function textOf(content: Anthropic.Beta.BetaContentBlock[]): string {
     .trim();
 }
 
-async function research(model: ModelId, encounter: Encounter, team: Character[]): Promise<string> {
+async function research(
+  model: ModelId,
+  encounter: Encounter,
+  team: Character[],
+  progress: ProgressFn,
+): Promise<string> {
   const runner = getClient().beta.messages.toolRunner({
     model,
     max_tokens: 16000,
@@ -156,7 +196,7 @@ async function research(model: ModelId, encounter: Encounter, team: Character[])
     ...FALLBACK_PARAMS,
     system: RESEARCH_SYSTEM,
     tools: [
-      ...researchTools,
+      ...makeResearchTools(progress),
       {
         type: "web_search_20260209",
         name: "web_search",
@@ -174,6 +214,12 @@ async function research(model: ModelId, encounter: Encounter, team: Character[])
 
   // Le runner ne relance pas seul un tour serveur en pause (web_search) : on le fait.
   for await (const message of runner) {
+    for (const block of message.content) {
+      if (block.type === "server_tool_use" && block.name === "web_search") {
+        const query = (block.input as { query?: unknown }).query;
+        progress(`Recherche web sur Dofus pour les noobs : « ${typeof query === "string" ? query : "…"} »`);
+      }
+    }
     if (message.stop_reason === "pause_turn") {
       runner.pushMessages({ role: "assistant", content: message.content });
     }
@@ -187,10 +233,14 @@ export async function generatePlan(
   model: ModelId,
   encounter: Encounter,
   team: Character[],
+  progress: ProgressFn = () => {},
 ): Promise<PlanResponse> {
   const baseline = baselineScore(team, encounter);
-  const notes = await research(model, encounter, team);
+  progress(`Score de base : ${baseline.stars}/5`);
+  progress("Recherche des informations sur le combat");
+  const notes = await research(model, encounter, team, progress);
 
+  progress("Rédaction du plan et des conseils par personnage");
   const response = await getClient().beta.messages.parse({
     model,
     max_tokens: 16000,

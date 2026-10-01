@@ -6,10 +6,18 @@ import { HistoryPanel } from "@/components/HistoryPanel";
 import { Login } from "@/components/Login";
 import { PlanView } from "@/components/PlanView";
 import { ProfilePanel } from "@/components/ProfilePanel";
+import { ProgressView, type ProgressStep } from "@/components/ProgressView";
 import { TeamEditor } from "@/components/TeamEditor";
 import type { Profile } from "@/lib/auth";
 import type { PlanSummary } from "@/lib/storage";
-import { MODELS, type Character, type Encounter, type ModelId, type PlanRecord } from "@/lib/types";
+import {
+  MODELS,
+  type Character,
+  type Encounter,
+  type ModelId,
+  type PlanRecord,
+  type PlanStreamEvent,
+} from "@/lib/types";
 
 // Simples suggestions : on peut saisir n'importe quel combat.
 const SUGGESTIONS = [
@@ -34,6 +42,7 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [current, setCurrent] = useState<PlanRecord | null>(null);
+  const [progress, setProgress] = useState<{ startedAt: number; steps: ProgressStep[] } | null>(null);
 
   const loadStatus = useCallback(async () => {
     const res = await fetch("/api/auth/status");
@@ -73,21 +82,50 @@ export default function Home() {
     setBusy(true);
     setError(null);
     setCurrent(null);
+    setProgress({ startedAt: Date.now(), steps: [{ message: "Envoi de la demande", at: Date.now() }] });
     try {
       const res = await fetch("/api/plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ encounter, participantIds: participants, model }),
       });
-      const body = await res.json();
       if (res.status === 401) return loadStatus();
-      if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
-      setCurrent(body);
-      await loadPlans();
+      if (!res.ok || !res.body) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? `HTTP ${res.status}`);
+      }
+
+      // Flux NDJSON : une ligne JSON par événement.
+      const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+      let buffer = "";
+      let finished = false;
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += value;
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const event = JSON.parse(line) as PlanStreamEvent;
+          if (event.type === "progress") {
+            setProgress((p) => p && { ...p, steps: [...p.steps, { message: event.message, at: event.at }] });
+          } else if (event.type === "done") {
+            finished = true;
+            setCurrent(event.record);
+          } else {
+            finished = true;
+            throw new Error(event.error);
+          }
+        }
+      }
+      if (!finished) throw new Error("Connexion interrompue : le plan apparaîtra dans « Mes plans » s'il aboutit.");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setBusy(false);
+      setProgress(null);
+      await loadPlans();
     }
   }
 
@@ -198,12 +236,13 @@ export default function Home() {
             ))}
           </select>
           <button className="primary" onClick={generate} disabled={!canGenerate}>
-            {busy ? "Analyse en cours (1 à 3 min)…" : "Générer le plan"}
+            {busy ? "Analyse en cours…" : "Générer le plan"}
           </button>
         </div>
         {error && <p className="error">{error}</p>}
       </section>
 
+      {progress && <ProgressView startedAt={progress.startedAt} steps={progress.steps} />}
       {current && <PlanView result={current.result} />}
       <HistoryPanel plans={plans} onOpen={openPlan} onDelete={deletePlan} />
       <GuidesPanel />

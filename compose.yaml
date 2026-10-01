@@ -1,0 +1,15 @@
+services:
+  dofus-planner:
+    build: .
+    image: dofus-planner
+    container_name: dofus-planner
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    # ANTHROPIC_API_KEY (et options) : voir .env.example
+    env_file: .env.local
+    volumes:
+      - dofus-data:/data
+
+volumes:
+  dofus-data:

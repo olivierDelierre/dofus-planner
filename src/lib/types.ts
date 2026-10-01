@@ -146,3 +146,9 @@ export interface PlanRecord {
   participants: Character[];
   result: PlanResponse;
 }
+
+/** Événements envoyés en flux NDJSON par POST /api/plan. */
+export type PlanStreamEvent =
+  | { type: "progress"; message: string; at: number }
+  | { type: "done"; record: PlanRecord }
+  | { type: "error"; error: string };

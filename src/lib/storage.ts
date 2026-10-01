@@ -175,7 +175,7 @@ export async function cachedFetchJson(url: string, ttlMs = 7 * 24 * 3600 * 1000)
   if (cached && Date.now() - cached.at < ttlMs) return cached.data;
 
   const res = await fetch(url, { headers: { Accept: "application/json" } });
-  if (!res.ok) throw new Error(`HTTP ${res.status} sur ${url}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status} sur ${new URL(url).host}`);
   const data = await res.json();
   await writeJson(file, { at: Date.now(), data });
   return data;

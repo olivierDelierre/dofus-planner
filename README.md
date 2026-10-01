@@ -48,6 +48,18 @@ L'app est ensuite accessible depuis les autres appareils du réseau sur `http://
 
 En développement : `npm run dev`.
 
+### Avec Docker (recommandé pour l'héberger chez soi)
+
+```bash
+cp .env.example .env.local   # puis renseigner ANTHROPIC_API_KEY
+docker compose up -d --build
+```
+
+- L'app écoute sur le port 3000. Pour le changer, modifie `ports` dans `compose.yaml`.
+- Les données sont dans le volume `dofus-data`, monté sur `/data`. Pour une sauvegarde : `docker run --rm -v dofus-data:/data -v "$PWD":/backup alpine tar czf /backup/dofus-data.tgz -C /data .`
+- Le conteneur tourne avec l'utilisateur `node` (uid 1000). Si tu remplaces le volume par un dossier de l'hôte, donne-le à cet uid : `chown -R 1000:1000 <dossier>`.
+- Mise à jour : `git pull && docker compose up -d --build`.
+
 ### Pré-remplir des guides
 
 ```bash
@@ -87,4 +99,6 @@ Pour une sauvegarde, il suffit de copier le dossier `data/`.
 - Les requêtes vers DofusDB (`name.fr[$search]`) et DofusDude n'ont pas encore été vérifiées contre les vraies API. En cas d'erreur, Claude reçoit le message et le signale dans les *infos manquantes*.
 - L'extraction de Dofus pour les noobs est générique. Si une page sort vide ou mal structurée, il faudra ajuster `extractGuide`, en partant du test `tests/dpln.test.ts`.
 - Les sorts de classe ne viennent pas d'une API : Claude s'appuie sur ce que tu saisis et sur ses connaissances générales, qui peuvent être en retard sur un patch.
-- Une génération coûte quelques dizaines de centimes avec Opus, moins avec Sonnet. Elle prend en général 1 à 3 minutes.
+- Une génération coûte quelques dizaines de centimes avec Opus, moins avec Sonnet. Elle prend en général 1 à 3 minutes, et ses étapes s'affichent en direct. Si tu fermes la page, la génération continue et le plan arrive dans « Mes plans ».
+- Derrière un reverse proxy, garde le flux de `/api/plan` sans mise en tampon. L'en-tête `X-Accel-Buffering: no` est déjà envoyé pour nginx.
+- Le script `npm run scrape` n'est pas inclus dans l'image Docker. Dans ce cas, passe par l'UI.

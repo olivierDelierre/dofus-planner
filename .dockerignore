@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+.env
+.env.local
+data/team.json
+data/profiles.json
+data/session-secret.key
+data/plans
+data/cache
+tests
+*.md

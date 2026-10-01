@@ -186,3 +186,50 @@ pre {
   white-space: pre-wrap;
   font-size: 13px;
 }
+
+.steps {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+}
+
+.steps li {
+  padding: 3px 0;
+}
+
+.steps li.done::before {
+  content: "✓ ";
+  color: var(--muted);
+}
+
+.steps li.current {
+  font-weight: 600;
+}
+
+.steps li.current::before {
+  content: "→ ";
+  color: var(--accent);
+}
+
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+  vertical-align: -1px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+}
