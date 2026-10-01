@@ -3,13 +3,15 @@
  * Claude part de cette note et doit justifier tout écart : ça évite des étoiles
  * qui changent d'une génération à l'autre pour la même situation.
  */
-import type { BaselineScore, Character, Encounter } from "./types";
+import type { BaselineScore, DofusbookProfile, Encounter } from "./types";
+
+type Member = Pick<DofusbookProfile, "className" | "level" | "elements">;
 
 // Heuristique volontairement grossière : classes réputées pour soigner ou encaisser.
-const HEALERS = new Set(["Eniripsa", "Osamodas"]);
-const PROTECTORS = new Set(["Féca", "Sacrieur", "Pandawa"]);
+const HEALERS = new Set<string>(["Eniripsa", "Osamodas"]);
+const PROTECTORS = new Set<string>(["Féca", "Sacrieur", "Pandawa"]);
 
-export function baselineScore(team: Character[], encounter: Encounter): BaselineScore {
+export function baselineScore(team: Member[], encounter: Encounter): BaselineScore {
   const factors: string[] = [];
   let score = 3;
 
@@ -33,11 +35,11 @@ export function baselineScore(team: Character[], encounter: Encounter): Baseline
     factors.push(`Seulement ${team.length} personnage(s) pour un donjon`);
   }
 
-  if (!team.some((c) => HEALERS.has(c.class))) {
+  if (!team.some((c) => HEALERS.has(c.className))) {
     score -= 0.5;
     factors.push("Pas de classe de soin dédiée");
   }
-  if (!team.some((c) => PROTECTORS.has(c.class))) {
+  if (!team.some((c) => PROTECTORS.has(c.className))) {
     score -= 0.5;
     factors.push("Pas de classe de protection/tank");
   }

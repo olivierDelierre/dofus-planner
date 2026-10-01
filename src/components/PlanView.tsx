@@ -1,4 +1,5 @@
-import type { PlanResponse } from "@/lib/types";
+import type { PlanRecord } from "@/lib/types";
+import { Avatar } from "./Avatar";
 
 function Stars({ n }: { n: number }) {
   return (
@@ -9,26 +10,30 @@ function Stars({ n }: { n: number }) {
   );
 }
 
-export function PlanView({ result }: { result: PlanResponse }) {
-  const { plan, baseline } = result;
+export function PlanView({ record }: { record: PlanRecord }) {
+  const { plan, baseline } = record.result;
+  // Associe les conseils aux persos pour afficher leur avatar.
+  const byName = new Map(record.participants.map((c) => [c.profile.name.toLowerCase(), c]));
+
   return (
     <section className="card">
-      <h2>Plan : {plan.encounterSummary.name}</h2>
-      <div className="row">
+      <h2>{plan.encounterSummary.name}</h2>
+      <div className="confidence">
         <Stars n={plan.confidence.stars} />
-        <span className="muted">
-          (score de base {baseline.stars}/5 · modèle {result.servedBy})
-        </span>
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <div>{plan.confidence.reasoning}</div>
+          <details>
+            <summary>
+              Score de base {baseline.stars}/5 · {record.result.servedBy}
+            </summary>
+            <ul>
+              {baseline.factors.map((f) => (
+                <li key={f}>{f}</li>
+              ))}
+            </ul>
+          </details>
+        </div>
       </div>
-      <p>{plan.confidence.reasoning}</p>
-      <details>
-        <summary>Facteurs du score de base</summary>
-        <ul>
-          {baseline.factors.map((f) => (
-            <li key={f}>{f}</li>
-          ))}
-        </ul>
-      </details>
 
       <h3>Le combat</h3>
       <p className="muted">Niveau : {plan.encounterSummary.level}</p>
@@ -38,26 +43,36 @@ export function PlanView({ result }: { result: PlanResponse }) {
         ))}
       </ul>
       {plan.encounterSummary.monsters.map((m) => (
-        <p key={m.name}>
-          <strong>{m.name}</strong> ({m.role}) · Faiblesses : {m.weaknesses} · Danger : {m.threats}
-        </p>
+        <div key={m.name} className="change" style={{ borderLeftColor: "var(--danger)" }}>
+          <strong>{m.name}</strong> <span className="muted">· {m.role}</span>
+          <div>Faiblesses : {m.weaknesses}</div>
+          <div className="muted">Danger : {m.threats}</div>
+        </div>
       ))}
 
       <h3>Ajustements par personnage</h3>
-      {plan.characters.map((c) => (
-        <div key={c.name} className="char" style={{ display: "block" }}>
-          <strong>{c.name}</strong> · <span className="muted">{c.role}</span>
-          <ul>
+      {plan.characters.map((c) => {
+        const character = byName.get(c.name.toLowerCase());
+        return (
+          <div key={c.name} style={{ marginBottom: 16 }}>
+            <div className="row">
+              {character && <Avatar profile={character.profile} />}
+              <div>
+                <strong>{c.name}</strong>
+                <div className="muted">{c.role}</div>
+              </div>
+            </div>
             {c.changes.map((ch, i) => (
-              <li key={i}>
-                <strong>[{ch.category}]</strong> {ch.change}
+              <div key={i} className="change">
+                <div className="tag">{ch.category}</div>
+                <div>{ch.change}</div>
                 <div className="muted">{ch.why}</div>
-              </li>
+              </div>
             ))}
-          </ul>
-          {c.keySpells.length > 0 && <p className="muted">Sorts clés : {c.keySpells.join(", ")}</p>}
-        </div>
-      ))}
+            {c.keySpells.length > 0 && <p className="muted">Sorts clés : {c.keySpells.join(", ")}</p>}
+          </div>
+        );
+      })}
 
       <h3>Stratégie</h3>
       <p>{plan.strategy.overview}</p>
@@ -99,12 +114,20 @@ export function PlanView({ result }: { result: PlanResponse }) {
       <h3>Sources</h3>
       <ul>
         {plan.sources.map((s) => (
-          <li key={s}>{s.startsWith("http") ? <a href={s} target="_blank" rel="noreferrer">{s}</a> : s}</li>
+          <li key={s} style={{ overflowWrap: "anywhere" }}>
+            {s.startsWith("http") ? (
+              <a href={s} target="_blank" rel="noreferrer">
+                {s}
+              </a>
+            ) : (
+              s
+            )}
+          </li>
         ))}
       </ul>
       <details>
         <summary>Notes de recherche brutes</summary>
-        <pre>{result.research}</pre>
+        <pre>{record.result.research}</pre>
       </details>
     </section>
   );

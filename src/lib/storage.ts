@@ -64,12 +64,16 @@ export function addCharacter(input: Omit<Character, "id">): Promise<Character> {
   });
 }
 
-export function updateCharacter(id: string, input: Omit<Character, "id">): Promise<Character | null> {
+/** Applique une modification partielle ; `patch` reçoit la version courante (sous verrou). */
+export function updateCharacter(
+  id: string,
+  patch: (current: Character) => Promise<Partial<Omit<Character, "id">>>,
+): Promise<Character | null> {
   return withLock(TEAM_FILE, async () => {
     const team = await loadTeam();
     const index = team.findIndex((c) => c.id === id);
     if (index === -1) return null;
-    team[index] = CharacterSchema.parse({ ...input, id });
+    team[index] = CharacterSchema.parse({ ...team[index], ...(await patch(team[index])), id });
     await writeJson(TEAM_FILE, team);
     return team[index];
   });
@@ -158,7 +162,7 @@ export async function listPlans(profileId: string): Promise<PlanSummary[]> {
       id: r.id,
       createdAt: r.createdAt,
       encounter: r.encounter.name,
-      participants: r.participants.map((p) => p.name),
+      participants: r.participants.map((p) => p.profile.name),
       stars: r.result.plan.confidence.stars,
     }))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));

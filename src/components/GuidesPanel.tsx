@@ -42,38 +42,43 @@ export function GuidesPanel() {
 
   return (
     <section className="card">
-      <h2>Guides locaux (Dofus pour les noobs)</h2>
+      <h2>Guides Dofus pour les noobs</h2>
       <p className="muted">
         Claude cherche et sauvegarde les guides tout seul pendant la génération. Tu peux aussi en ajouter à la main.
       </p>
-      <div className="row">
+      <div className="stack">
         <input
-          style={{ flex: 1, minWidth: 0 }}
-          placeholder="https://www.dofuspourlesnoobs.com/..."
+          inputMode="url"
+          placeholder="https://www.dofuspourlesnoobs.com/…"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
         />
-        <button onClick={() => scrape(url)} disabled={busy || !url}>
-          {busy ? "Scraping…" : "Scraper"}
+        <button className="btn primary block" onClick={() => scrape(url)} disabled={busy || !url}>
+          {busy ? "Récupération…" : "Récupérer le guide"}
         </button>
       </div>
       {error && <p className="error">{error}</p>}
       {guides.length === 0 ? (
-        <p className="muted">Aucun guide sauvegardé pour l&apos;instant.</p>
+        <div className="empty">
+          <span className="icon">📚</span>
+          Aucun guide sauvegardé pour l&apos;instant.
+        </div>
       ) : (
-        <ul>
+        <div style={{ marginTop: 12 }}>
           {guides.map((g) => (
-            <li key={g.slug}>
-              <a href={g.url} target="_blank" rel="noreferrer">
-                {g.title}
-              </a>{" "}
-              <span className="muted">· {new Date(g.fetchedAt).toLocaleDateString("fr-FR")}</span>{" "}
-              <button onClick={() => scrape(g.url, true)} disabled={busy}>
-                Rafraîchir
+            <div className="list-item" key={g.slug}>
+              <div className="info">
+                <a href={g.url} target="_blank" rel="noreferrer">
+                  {g.title}
+                </a>
+                <div className="muted">Récupéré le {new Date(g.fetchedAt).toLocaleDateString("fr-FR")}</div>
+              </div>
+              <button className="btn small" onClick={() => scrape(g.url, true)} disabled={busy} aria-label="Rafraîchir">
+                ↻
               </button>
-            </li>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
     </section>
   );

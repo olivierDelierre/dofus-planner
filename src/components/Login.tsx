@@ -33,18 +33,20 @@ export function Login({ firstRun, onLoggedIn }: Props) {
   }
 
   return (
-    <main style={{ maxWidth: 420 }}>
-      <h1>Dofus Planner</h1>
-      <p className="subtitle">
-        {firstRun ? "Premier lancement : crée ton profil." : "Connecte-toi à ton profil."}
+    <div className="auth">
+      <div className="brand">
+        <span className="brand-mark">⚔</span> Dofus Planner
+      </div>
+      <p className="muted" style={{ textAlign: "center", marginBottom: 24 }}>
+        {firstRun ? "Premier lancement : crée ton profil." : "Prépare tes donjons avec Claude."}
       </p>
-      <form className="card" onSubmit={submit}>
+      <form className="card stack" onSubmit={submit}>
         <label>
           Profil
-          <input autoComplete="username" value={name} onChange={(e) => setName(e.target.value)} />
+          <input autoComplete="username" autoCapitalize="words" value={name} onChange={(e) => setName(e.target.value)} />
         </label>
-        <label style={{ marginTop: 12 }}>
-          Mot de passe {firstRun && "(8 caractères minimum)"}
+        <label>
+          Mot de passe {firstRun && "(8 caractères min.)"}
           <input
             type="password"
             autoComplete={firstRun ? "new-password" : "current-password"}
@@ -53,12 +55,10 @@ export function Login({ firstRun, onLoggedIn }: Props) {
           />
         </label>
         {error && <p className="error">{error}</p>}
-        <div className="row" style={{ marginTop: 12 }}>
-          <button className="primary" disabled={busy || !name.trim() || !password}>
-            {firstRun ? "Créer le profil" : "Se connecter"}
-          </button>
-        </div>
+        <button className="btn primary block" disabled={busy || !name.trim() || !password}>
+          {firstRun ? "Créer le profil" : "Se connecter"}
+        </button>
       </form>
-    </main>
+    </div>
   );
 }

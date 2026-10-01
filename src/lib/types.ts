@@ -25,29 +25,49 @@ export const CLASSES = [
 export const ELEMENTS = ["Terre", "Feu", "Eau", "Air", "Neutre"] as const;
 
 export const MODELS = [
-  { id: "claude-opus-5-5", label: "Opus 5.5 (meilleure analyse)" },
-  { id: "claude-sonnet-5-5", label: "Sonnet 5.5 (moins cher)" },
+  { id: "claude-opus-5-5", label: "Opus 5.5", hint: "meilleure analyse" },
+  { id: "claude-sonnet-5-5", label: "Sonnet 5.5", hint: "moins cher" },
 ] as const;
 export type ModelId = (typeof MODELS)[number]["id"];
 
+/** Fiche importée depuis DofusBook (copie locale, rafraîchie à la demande). */
+export const DofusbookProfileSchema = z.object({
+  sourceUrl: z.string().url(),
+  sourceId: z.string(),
+  fetchedAt: z.string(),
+  name: z.string(),
+  className: z.string(),
+  level: z.number().int(),
+  /** Illustration ou icône de classe, si DofusBook la fournit. */
+  classImage: z.string().url().optional(),
+  elements: z.array(z.enum(ELEMENTS)),
+  items: z.array(
+    z.object({
+      slot: z.string(),
+      name: z.string(),
+      level: z.number().int().optional(),
+      icon: z.string().url().optional(),
+    }),
+  ),
+  stats: z.array(z.object({ key: z.string(), label: z.string(), value: z.union([z.number(), z.string()]) })),
+  spells: z.array(z.object({ name: z.string(), level: z.number().int().optional(), icon: z.string().url().optional() })),
+});
+export type DofusbookProfile = z.infer<typeof DofusbookProfileSchema>;
+
 export const CharacterSchema = z.object({
   id: z.string(),
-  name: z.string().min(1),
-  class: z.enum(CLASSES),
-  level: z.number().int().min(1).max(200),
-  elements: z.array(z.enum(ELEMENTS)),
-  /** Optionnel : description libre du stuff (items, caracs, PA/PM...). */
-  stuff: z.string().optional(),
-  /** Optionnel : sorts actuellement choisis / variantes. */
-  spells: z.string().optional(),
+  dofusbookUrl: z.string().url(),
+  profile: DofusbookProfileSchema,
+  /** Notes libres pour Claude (rôle habituel, habitudes de jeu…). */
   notes: z.string().optional(),
-  /** Nom du profil qui a créé le personnage (l'équipe est partagée entre profils). */
+  /** Nom du profil qui a ajouté le personnage (l'équipe est partagée entre profils). */
   owner: z.string().optional(),
 });
 export type Character = z.infer<typeof CharacterSchema>;
 
 export const TeamSchema = z.array(CharacterSchema);
-export const CharacterInputSchema = CharacterSchema.omit({ id: true, owner: true });
+export const AddCharacterSchema = z.object({ url: z.string().url(), notes: z.string().optional() });
+export const UpdateCharacterSchema = z.object({ notes: z.string().optional(), refresh: z.boolean().optional() });
 
 export const EncounterSchema = z.object({
   name: z.string().min(1),
