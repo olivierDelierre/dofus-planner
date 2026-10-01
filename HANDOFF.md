@@ -22,21 +22,22 @@ Mets à jour ce fichier à la fin de chaque session : état, branches et prochai
 - `src/lib/dofusbook.ts` : l'analyse des liens est faite et testée. **`fetchDofusbookProfile()` est un stub qui lève une erreur**, donc on ne peut pas encore ajouter de perso sur cette branche.
 - UI vérifiée avec des données fictives : captures mobile et ordinateur OK. 8 tests unitaires.
 
-## Prochaine tâche : brancher l'import DofusBook
+## Session 2 (1er octobre 2026)
 
-Lien d'exemple fourni par l'utilisateur : `https://www.dofusbook.net/mobile/fr/equipement/16088968-db/objets`
+- (Abandonné) **DofusBook est bloqué par Cloudflare depuis le conteneur cloud** : `dofusbook.net`, `www.dofusbook.net` et `www.d-bk.net` répondent 403 « Attention Required » (même avec un User-Agent de navigateur ou Chromium via Playwright). Seul `d-bk.net/fr/d/<id>` répond (301 vers dofusbook.net). L'import ne peut donc pas être inspecté ici : il faut une réponse JSON enregistrée par l'utilisateur (F12 → Réseau), ou tester l'app depuis le réseau de l'utilisateur.
+- DofusDB, DofusDude, dofuspourlesnoobs.com et static.ankama.com sont joignables.
+- **Assets officiels** : `scripts/fetch-assets.mjs` télécharge dans `public/game/` (versionné) les symboles des 19 classes (`api.dofusdb.fr/img/breeds/symbol_N.png`) et les icônes de caractéristiques (`dofusdb.fr/icons/characteristics/tx_*.png`). `src/lib/assets.ts` les expose (`classIcon`, `elementIcon`, `statIcon`) ; utilisés dans `Avatar`, `CharacterSheet`, `TeamTab`.
+- Icônes d'items et de sorts : `https://api.dofusdb.fr/img/items/<iconId>.png` et `.../img/spells/sort_<iconId>.png` (le champ `img` des réponses DofusDB). Pas d'icône pour les PV (`tx_lifePoints` n'existe pas).
 
-1. Vérifie l'accès réseau (`curl -sI https://www.dofusbook.net/`). S'il est bloqué, demande à l'utilisateur d'ouvrir les domaines listés dans `CLAUDE.md`.
-2. Inspecte DofusBook. C'est une application web qui charge ses données par une API interne non documentée. Récupère la page, trouve dans son JS ou son HTML l'endpoint qui renvoie le stuff (personnage, classe, niveau, items, caractéristiques, sorts), et note s'il exige des en-têtes ou des cookies. Si ce n'est pas possible, demande à l'utilisateur de copier la réponse JSON depuis l'onglet Réseau de son navigateur (F12).
-3. Implémente `fetchDofusbookProfile()` vers `DofusbookProfile` :
-   - déduis les `elements` à partir des caractéristiques principales (Force → Terre, Intelligence → Feu, Chance → Eau, Agilité → Air) ;
-   - garde les URL d'icônes des items et des sorts si elles existent, plus l'illustration de classe (`classImage`) ;
-   - clés de stats mises en avant dans la fiche : `pa`, `pm`, `pv`, `po`, `vitalite` ;
-   - mets en cache comme les autres sources, et respecte le site (pas de requêtes en rafale).
-4. Ajoute un test avec une **vraie réponse enregistrée** (fixture dans `tests/fixtures/`), dans le même esprit que `tests/dpln.test.ts`.
-5. Si les icônes viennent d'un CDN externe, vérifie qu'elles s'affichent. L'app ne définit pas de CSP pour l'instant.
-6. Mets à jour le `README.md`, qui décrit encore la saisie manuelle : section « Fonctionnement », et la migration de `team.json` (les persos saisis à la main ne sont plus valides avec le nouveau schéma, à confirmer avec l'utilisateur : migration ou remise à zéro).
-7. Fusionne `refonte-mobile-dofusbook` dans `main` une fois que tout est testé.
+## Création de personnages dans l'app (décision du 1er octobre, DofusBook abandonné)
+
+Fait sur `refonte-mobile-dofusbook` : `src/lib/builder.ts` (saisie → fiche, calcul des caractéristiques), routes `/api/game/{items,spells,breeds,preview}`, `/api/icon` (proxy d'images avec cache), `CharacterEditor` (classe, genre, niveau, points de base, équipement par emplacement, sorts avec niveaux, aperçu des stats), `Paperdoll` (équipement façon DofusBook), `CharacterSheet`. Interface mobile et PC (deux colonnes ≥ 1000 px). Anciens personnages mis de côté dans `data/team.legacy.json`.
+
+Limites connues / idées :
+- PA, PM et PV de base sont des estimations (PA 6, 7 dès le niveau 100 ; PM 3 ; PV 55 + 5/niveau) : à vérifier avec le jeu. Les bonus d'objets sont pris au jet maximum.
+- Pas de rendu en pied du personnage (le renderer d'Ankama ne gère pas les looks Dofus 3) : on affiche le symbole de classe et la tête.
+- Pas de contrôle que l'objet correspond bien à l'emplacement côté serveur (l'éditeur ne propose que les bons types) ; panoplies et bonus de panoplie non calculés ; familiers sans stats (absents de DofusDude).
+- Fusionner `refonte-mobile-dofusbook` dans `main` après validation par l'utilisateur.
 
 ## Encore jamais testé en conditions réelles
 

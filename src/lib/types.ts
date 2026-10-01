@@ -25,21 +25,78 @@ export const CLASSES = [
 export const ELEMENTS = ["Terre", "Feu", "Eau", "Air", "Neutre"] as const;
 
 export const MODELS = [
-  { id: "claude-opus-5-5", label: "Opus 5.5 (meilleure analyse)" },
-  { id: "claude-sonnet-5-5", label: "Sonnet 5.5 (moins cher)" },
+  { id: "claude-opus-5-5", label: "Opus 5.5", hint: "meilleure analyse" },
+  { id: "claude-sonnet-5-5", label: "Sonnet 5.5", hint: "moins cher" },
 ] as const;
 export type ModelId = (typeof MODELS)[number]["id"];
 
+/** Emplacements d'équipement d'un personnage. */
+export const SLOTS = [
+  "Chapeau", "Cape", "Amulette", "Anneau 1", "Anneau 2", "Ceinture", "Bottes", "Arme", "Bouclier", "Familier",
+  "Dofus 1", "Dofus 2", "Dofus 3", "Dofus 4", "Dofus 5", "Dofus 6",
+] as const;
+export type Slot = (typeof SLOTS)[number];
+
+export const GENDERS = ["m", "f"] as const;
+
+export const BASE_STATS = ["vitalite", "sagesse", "force", "intelligence", "chance", "agilite"] as const;
+export type BaseStat = (typeof BASE_STATS)[number];
+
+/** Ce que l'utilisateur saisit dans l'éditeur : seulement des identifiants et des nombres. */
+export const BuildInputSchema = z.object({
+  name: z.string().trim().min(1).max(40),
+  classId: z.number().int(),
+  gender: z.enum(GENDERS),
+  level: z.number().int().min(1).max(200),
+  /** Points investis dans chaque caractéristique (capital + parchemins), hors équipement. */
+  base: z.object(Object.fromEntries(BASE_STATS.map((k) => [k, z.number().int().min(0).max(2000)])) as Record<BaseStat, z.ZodNumber>),
+  items: z.array(z.object({ slot: z.enum(SLOTS), itemId: z.number().int() })).max(SLOTS.length),
+  spells: z.array(z.object({ id: z.number().int(), level: z.number().int().min(1).max(6) })).max(60),
+});
+export type BuildInput = z.infer<typeof BuildInputSchema>;
+
+/** Fiche complète : saisie + données du jeu (noms, icônes, effets) + caractéristiques calculées. */
+export const ProfileSchema = z.object({
+  name: z.string(),
+  classId: z.number().int(),
+  className: z.string(),
+  gender: z.enum(GENDERS),
+  level: z.number().int(),
+  /** Symbole de classe et tête du personnage (chemins locaux ou URL DofusDB). */
+  classImage: z.string().optional(),
+  headImage: z.string().optional(),
+  base: BuildInputSchema.shape.base,
+  elements: z.array(z.enum(ELEMENTS)),
+  items: z.array(
+    z.object({
+      slot: z.string(),
+      itemId: z.number().int(),
+      name: z.string(),
+      level: z.number().int().optional(),
+      type: z.string().optional(),
+      icon: z.string().optional(),
+      effects: z.array(z.string()).default([]),
+    }),
+  ),
+  stats: z.array(z.object({ key: z.string(), label: z.string(), value: z.union([z.number(), z.string()]) })),
+  spells: z.array(
+    z.object({
+      id: z.number().int(),
+      name: z.string(),
+      level: z.number().int().optional(),
+      icon: z.string().optional(),
+      description: z.string().optional(),
+    }),
+  ),
+});
+export type CharacterProfile = z.infer<typeof ProfileSchema>;
+
 export const CharacterSchema = z.object({
   id: z.string(),
-  name: z.string().min(1),
-  class: z.enum(CLASSES),
-  level: z.number().int().min(1).max(200),
-  elements: z.array(z.enum(ELEMENTS)),
-  /** Optionnel : description libre du stuff (items, caracs, PA/PM...). */
-  stuff: z.string().optional(),
-  /** Optionnel : sorts actuellement choisis / variantes. */
-  spells: z.string().optional(),
+  profile: ProfileSchema,
+  /** Saisie d'origine, pour rouvrir l'éditeur. */
+  build: BuildInputSchema,
+  /** Notes libres pour Claude (rôle habituel, habitudes de jeu…). */
   notes: z.string().optional(),
   /** Nom du profil qui a créé le personnage (l'équipe est partagée entre profils). */
   owner: z.string().optional(),
@@ -47,7 +104,8 @@ export const CharacterSchema = z.object({
 export type Character = z.infer<typeof CharacterSchema>;
 
 export const TeamSchema = z.array(CharacterSchema);
-export const CharacterInputSchema = CharacterSchema.omit({ id: true, owner: true });
+export const SaveCharacterSchema = z.object({ build: BuildInputSchema, notes: z.string().max(2000).optional() });
+export const UpdateNotesSchema = z.object({ notes: z.string().max(2000) });
 
 export const EncounterSchema = z.object({
   name: z.string().min(1),

@@ -1,48 +1,38 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { AccountSheet } from "@/components/AccountSheet";
+import { CombatTab } from "@/components/CombatTab";
 import { GuidesPanel } from "@/components/GuidesPanel";
-import { HistoryPanel } from "@/components/HistoryPanel";
 import { Login } from "@/components/Login";
-import { PlanView } from "@/components/PlanView";
-import { ProfilePanel } from "@/components/ProfilePanel";
-import { ProgressView, type ProgressStep } from "@/components/ProgressView";
-import { TeamEditor } from "@/components/TeamEditor";
+import { PlansTab } from "@/components/PlansTab";
+import { TeamTab } from "@/components/TeamTab";
 import type { Profile } from "@/lib/auth";
+import { initials } from "@/lib/classes";
 import type { PlanSummary } from "@/lib/storage";
-import {
-  MODELS,
-  type Character,
-  type Encounter,
-  type ModelId,
-  type PlanRecord,
-  type PlanStreamEvent,
-} from "@/lib/types";
+import type { Character } from "@/lib/types";
 
-// Simples suggestions : on peut saisir n'importe quel combat.
-const SUGGESTIONS = [
-  "Donjon des Bouftous",
-  "Donjon des Larves",
-  "Donjon des Tofus",
-  "Donjon des Scarafeuilles",
-  "Donjon des Champs",
-  "Donjon des Forgerons",
-  "Bandits de Cania",
-];
+const TABS = [
+  { id: "combat", label: "Combat", icon: "⚔️" },
+  { id: "equipe", label: "Équipe", icon: "🛡️" },
+  { id: "plans", label: "Plans", icon: "📜" },
+  { id: "guides", label: "Guides", icon: "📚" },
+] as const;
+type TabId = (typeof TABS)[number]["id"];
 
 type AuthState = { status: "loading" } | { status: "out"; firstRun: boolean } | { status: "in"; profile: Profile };
 
+function tabFromHash(): TabId {
+  const hash = typeof window === "undefined" ? "" : window.location.hash.slice(1);
+  return TABS.some((t) => t.id === hash) ? (hash as TabId) : "combat";
+}
+
 export default function Home() {
   const [auth, setAuth] = useState<AuthState>({ status: "loading" });
+  const [tab, setTab] = useState<TabId>("combat");
   const [team, setTeam] = useState<Character[]>([]);
   const [plans, setPlans] = useState<PlanSummary[]>([]);
-  const [encounter, setEncounter] = useState<Encounter>({ name: "", kind: "donjon" });
-  const [participants, setParticipants] = useState<string[]>([]);
-  const [model, setModel] = useState<ModelId>("claude-opus-5-5");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [current, setCurrent] = useState<PlanRecord | null>(null);
-  const [progress, setProgress] = useState<{ startedAt: number; steps: ProgressStep[] } | null>(null);
+  const [accountOpen, setAccountOpen] = useState(false);
 
   const loadStatus = useCallback(async () => {
     const res = await fetch("/api/auth/status");
@@ -62,6 +52,11 @@ export default function Home() {
 
   useEffect(() => {
     loadStatus();
+    // L'onglet est reflété dans l'URL (#equipe…) : le bouton retour et les favoris fonctionnent.
+    setTab(tabFromHash());
+    const onHash = () => setTab(tabFromHash());
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
   }, [loadStatus]);
 
   useEffect(() => {
@@ -70,182 +65,73 @@ export default function Home() {
     loadPlans();
   }, [auth, loadTeam, loadPlans]);
 
-  // Retire de la sélection les persos supprimés par un autre profil.
-  useEffect(() => {
-    setParticipants((ids) => ids.filter((id) => team.some((c) => c.id === id)));
-  }, [team]);
+  const go = (id: TabId) => {
+    window.location.hash = id;
+    window.scrollTo({ top: 0 });
+  };
 
-  if (auth.status === "loading") return <main className="muted">Chargement…</main>;
+  if (auth.status === "loading") return <div className="auth muted">Chargement…</div>;
   if (auth.status === "out") return <Login firstRun={auth.firstRun} onLoggedIn={loadStatus} />;
 
-  async function generate() {
-    setBusy(true);
-    setError(null);
-    setCurrent(null);
-    setProgress({ startedAt: Date.now(), steps: [{ message: "Envoi de la demande", at: Date.now() }] });
-    try {
-      const res = await fetch("/api/plan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ encounter, participantIds: participants, model }),
-      });
-      if (res.status === 401) return loadStatus();
-      if (!res.ok || !res.body) {
-        const body = await res.json().catch(() => null);
-        throw new Error(body?.error ?? `HTTP ${res.status}`);
-      }
-
-      // Flux NDJSON : une ligne JSON par événement.
-      const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
-      let buffer = "";
-      let finished = false;
-      for (;;) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += value;
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          const event = JSON.parse(line) as PlanStreamEvent;
-          if (event.type === "progress") {
-            setProgress((p) => p && { ...p, steps: [...p.steps, { message: event.message, at: event.at }] });
-          } else if (event.type === "done") {
-            finished = true;
-            setCurrent(event.record);
-          } else {
-            finished = true;
-            throw new Error(event.error);
-          }
-        }
-      }
-      if (!finished) throw new Error("Connexion interrompue : le plan apparaîtra dans « Mes plans » s'il aboutit.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(false);
-      setProgress(null);
-      await loadPlans();
-    }
-  }
-
-  async function openPlan(id: string) {
-    const res = await fetch(`/api/plans/${encodeURIComponent(id)}`);
-    if (res.ok) setCurrent(await res.json());
-  }
-
-  async function deletePlan(id: string) {
-    await fetch(`/api/plans/${encodeURIComponent(id)}`, { method: "DELETE" });
-    if (current?.id === id) setCurrent(null);
-    await loadPlans();
-  }
-
-  const canGenerate = encounter.name.trim() && participants.length > 0 && !busy;
+  const tabButtons = TABS.map((t) => (
+    <button key={t.id} className="tab" role="tab" aria-selected={tab === t.id} onClick={() => go(t.id)}>
+      <span className="icon" aria-hidden>
+        {t.icon}
+      </span>
+      {t.label}
+    </button>
+  ));
 
   return (
-    <main>
-      <h1>Dofus Planner</h1>
-      <p className="subtitle">Prépare tes donjons et combats spéciaux Dofus 3 avec Claude.</p>
-
-      <ProfilePanel profile={auth.profile} onLoggedOut={() => setAuth({ status: "out", firstRun: false })} />
-      <TeamEditor team={team} onChanged={loadTeam} />
-
-      <section className="card">
-        <h2>Combat</h2>
-        <div className="grid">
-          <label>
-            Donjon ou combat
-            <input
-              list="encounters"
-              value={encounter.name}
-              onChange={(e) => setEncounter({ ...encounter, name: e.target.value })}
-            />
-            <datalist id="encounters">
-              {SUGGESTIONS.map((s) => (
-                <option key={s} value={s} />
-              ))}
-            </datalist>
-          </label>
-          <label>
-            Type
-            <select
-              value={encounter.kind}
-              onChange={(e) => setEncounter({ ...encounter, kind: e.target.value as Encounter["kind"] })}
-            >
-              <option value="donjon">Donjon</option>
-              <option value="quete">Combat de quête</option>
-              <option value="autre">Autre</option>
-            </select>
-          </label>
-          <label>
-            Niveau (optionnel)
-            <input
-              type="number"
-              min={1}
-              max={200}
-              value={encounter.level ?? ""}
-              onChange={(e) =>
-                setEncounter({ ...encounter, level: e.target.value ? Number(e.target.value) : undefined })
-              }
-            />
-          </label>
-          <label>
-            Guide Dofus pour les noobs (optionnel)
-            <input
-              placeholder="https://www.dofuspourlesnoobs.com/..."
-              value={encounter.guideUrl ?? ""}
-              onChange={(e) => setEncounter({ ...encounter, guideUrl: e.target.value || undefined })}
-            />
-          </label>
+    <>
+      <header className="topbar">
+        <div className="brand">
+          <span className="brand-mark">⚔</span>
+          <span>Dofus Planner</span>
         </div>
-        <label style={{ marginTop: 12 }}>
-          Notes pour Claude (optionnel)
-          <textarea
-            placeholder="Ex. : on bloque toujours au boss, on n'a pas de soigneur…"
-            value={encounter.notes ?? ""}
-            onChange={(e) => setEncounter({ ...encounter, notes: e.target.value || undefined })}
-          />
-        </label>
+        <nav className="tabs" role="tablist">
+          {tabButtons}
+        </nav>
+        <button
+          className="avatar"
+          style={{ width: 38, height: 38, borderRadius: 12, border: 0, cursor: "pointer", fontSize: 14 }}
+          onClick={() => setAccountOpen(true)}
+          aria-label={`Compte de ${auth.profile.name}`}
+        >
+          {initials(auth.profile.name)}
+        </button>
+      </header>
 
-        <h3>Participants</h3>
-        {team.length === 0 ? (
-          <p className="muted">Ajoute d&apos;abord des personnages à l&apos;équipe.</p>
-        ) : (
-          <div className="checks">
-            {team.map((c) => (
-              <label key={c.id}>
-                <input
-                  type="checkbox"
-                  checked={participants.includes(c.id)}
-                  onChange={() =>
-                    setParticipants((ids) => (ids.includes(c.id) ? ids.filter((i) => i !== c.id) : [...ids, c.id]))
-                  }
-                />
-                {c.name} ({c.class} {c.level})
-              </label>
-            ))}
-          </div>
-        )}
-
-        <div className="row" style={{ marginTop: 16 }}>
-          <select value={model} onChange={(e) => setModel(e.target.value as ModelId)} style={{ width: "auto" }}>
-            {MODELS.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.label}
-              </option>
-            ))}
-          </select>
-          <button className="primary" onClick={generate} disabled={!canGenerate}>
-            {busy ? "Analyse en cours…" : "Générer le plan"}
-          </button>
+      <main className="app">
+        {/* Les onglets restent montés : une génération en cours survit à un changement d'onglet. */}
+        <div hidden={tab !== "combat"}>
+          <CombatTab team={team} onUnauthorized={loadStatus} onPlanSaved={loadPlans} onGoToTeam={() => go("equipe")} />
         </div>
-        {error && <p className="error">{error}</p>}
-      </section>
+        <div hidden={tab !== "equipe"}>
+          <TeamTab team={team} onChanged={loadTeam} />
+        </div>
+        <div hidden={tab !== "plans"}>
+          <PlansTab plans={plans} onChanged={loadPlans} />
+        </div>
+        <div hidden={tab !== "guides"}>
+          <GuidesPanel />
+        </div>
+      </main>
 
-      {progress && <ProgressView startedAt={progress.startedAt} steps={progress.steps} />}
-      {current && <PlanView result={current.result} />}
-      <HistoryPanel plans={plans} onOpen={openPlan} onDelete={deletePlan} />
-      <GuidesPanel />
-    </main>
+      <nav className="tabbar" role="tablist">
+        {tabButtons}
+      </nav>
+
+      {accountOpen && (
+        <AccountSheet
+          profile={auth.profile}
+          onClose={() => setAccountOpen(false)}
+          onLoggedOut={() => {
+            setAccountOpen(false);
+            setAuth({ status: "out", firstRun: false });
+          }}
+        />
+      )}
+    </>
   );
 }

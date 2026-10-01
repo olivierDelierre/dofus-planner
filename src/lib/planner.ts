@@ -150,16 +150,20 @@ Liste honnêtement les informations manquantes. Réponds en français.`;
 
 function describeTeam(team: Character[]): string {
   return team
-    .map((c) =>
-      [
-        `- ${c.name} : ${c.class} niveau ${c.level}, éléments ${c.elements.join("/") || "non précisés"}`,
-        c.stuff ? `  Stuff : ${c.stuff}` : null,
-        c.spells ? `  Sorts : ${c.spells}` : null,
-        c.notes ? `  Notes : ${c.notes}` : null,
+    .map(({ profile: p, notes }) => {
+      const stats = p.stats.map((s) => `${s.label} ${s.value}`).join(", ");
+      const items = p.items.map((i) => `${i.slot} : ${i.name}${i.level ? ` (niv. ${i.level})` : ""}`).join(" ; ");
+      const spells = p.spells.map((s) => (s.level ? `${s.name} (niv. ${s.level})` : s.name)).join(", ");
+      return [
+        `- ${p.name} : ${p.className} niveau ${p.level}, éléments ${p.elements.join("/") || "non déterminés"}`,
+        stats ? `  Caractéristiques : ${stats}` : null,
+        items ? `  Équipement : ${items}` : null,
+        spells ? `  Sorts : ${spells}` : null,
+        notes ? `  Notes du joueur : ${notes}` : null,
       ]
         .filter(Boolean)
-        .join("\n"),
-    )
+        .join("\n");
+    })
     .join("\n");
 }
 
@@ -235,7 +239,10 @@ export async function generatePlan(
   team: Character[],
   progress: ProgressFn = () => {},
 ): Promise<PlanResponse> {
-  const baseline = baselineScore(team, encounter);
+  const baseline = baselineScore(
+    team.map((c) => c.profile),
+    encounter,
+  );
   progress(`Score de base : ${baseline.stars}/5`);
   progress("Recherche des informations sur le combat");
   const notes = await research(model, encounter, team, progress);

@@ -2,7 +2,7 @@
 
 Planificateur de donjons et de combats spéciaux pour **Dofus 3**, assisté par Claude.
 
-1. Tu configures l'équipe : classes, niveaux, éléments, et en option le stuff et les sorts.
+1. Tu crées les personnages de l'équipe dans l'app : classe, genre, niveau, points de caractéristiques, un objet par emplacement (recherche avec icônes) et les sorts de la classe avec leur niveau. Les caractéristiques totales sont calculées automatiquement.
 2. Tu choisis un donjon ou un combat de quête (ex. *Bandits de Cania*) et les persos qui y participent.
 3. Claude cherche les infos du combat, puis propose pour chaque perso ce qu'il faut changer et pourquoi. Il donne aussi la marche à suivre et une note de confiance de 1 à 5 étoiles.
 
@@ -18,6 +18,8 @@ DofusDB / DofusDude (+cache) ─┘                                             
 ```
 
 - **Scraper Dofus pour les noobs** (`src/lib/dpln.ts`) : il extrait le texte d'une page de guide (titres, paragraphes, listes, tableaux) et l'enregistre dans `data/guides/<slug>.json`. Pendant la génération, Claude trouve la page avec une recherche web limitée à `dofuspourlesnoobs.com`, puis la scrape. Les fois suivantes, il relit directement la copie locale.
+- **Personnages** (`src/lib/builder.ts`) : la saisie ne contient que des identifiants et des nombres ; le serveur la complète avec les noms, icônes et effets des objets (DofusDB + DofusDude) et les sorts de la classe, puis calcule PA, PM, PV, portée, caractéristiques et éléments. Les icônes distantes passent par `/api/icon` (liste blanche, cache disque) ; celles des classes et des caractéristiques sont dans `public/game/` (`node scripts/fetch-assets.mjs` pour les mettre à jour). DofusBook est bloqué par Cloudflare, il n'est donc pas utilisé. Les personnages d'une ancienne version sont mis de côté dans `data/team.legacy.json`.
+- **Interface** : pensée pour le mobile (barre d'onglets en bas) et adaptée au grand écran (fiche et éditeur en deux colonnes).
 - **API de données** (`src/lib/gamedata.ts`) : DofusDude pour les équipements et panoplies, DofusDB pour les monstres et donjons. Les réponses sont mises en cache 7 jours dans `data/cache/`.
 - **Score de base** (`src/lib/score.ts`) : il tient compte de l'écart de niveau, du nombre de persos, de la présence de soin et de protection, et de la couverture élémentaire. Claude part de ce score et doit justifier tout écart.
 - **Modèle** : choix dans l'UI entre Opus 5.5 (par défaut) et Sonnet 5.5. Un repli automatique côté serveur est activé si un classifieur refuse une requête par erreur.
