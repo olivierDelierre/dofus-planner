@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { elementIcon, statIcon } from "@/lib/assets";
 import { elementClass } from "@/lib/classes";
 import type { Character } from "@/lib/types";
 import { Avatar } from "./Avatar";
@@ -82,6 +83,8 @@ export function TeamTab({ team, onChanged }: Props) {
                   <div className="pills">
                     {c.profile.elements.map((e) => (
                       <span key={e} className={`pill ${elementClass(e)}`}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img className="ico" src={elementIcon(e)} alt="" />
                         {e}
                       </span>
                     ))}

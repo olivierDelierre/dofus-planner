@@ -785,3 +785,20 @@ details summary {
   height: 40px;
   font-size: 22px;
 }
+
+/* ---------- Icônes du jeu ---------- */
+.ico {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  vertical-align: -3px;
+  margin-right: 4px;
+}
+.pill .ico {
+  margin-right: 0;
+  vertical-align: middle;
+}
+.avatar img[src^="/game/classes/"] {
+  object-fit: contain;
+  padding: 6px;
+}

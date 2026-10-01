@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { elementIcon, statIcon } from "@/lib/assets";
 import { elementClass } from "@/lib/classes";
 import type { Character } from "@/lib/types";
 import { Avatar } from "./Avatar";
@@ -65,6 +66,8 @@ export function CharacterSheet({ character, onClose, onChanged }: Props) {
             <div className="pills">
               {p.elements.map((e) => (
                 <span key={e} className={`pill ${elementClass(e)}`}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img className="ico" src={elementIcon(e)} alt="" />
                   {e}
                 </span>
               ))}
@@ -104,7 +107,13 @@ export function CharacterSheet({ character, onClose, onChanged }: Props) {
         <div className="stats">
           {stats.map((s) => (
             <div key={s.key} className={KEY_STATS.has(s.key) ? "stat key" : "stat"}>
-              <span className="muted">{s.label}</span>
+              <span className="muted">
+                {statIcon(s.key, s.label) && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img className="ico" src={statIcon(s.key, s.label)} alt="" />
+                )}
+                {s.label}
+              </span>
               <span className="v">{s.value}</span>
             </div>
           ))}

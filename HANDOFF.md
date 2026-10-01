@@ -22,6 +22,13 @@ Mets à jour ce fichier à la fin de chaque session : état, branches et prochai
 - `src/lib/dofusbook.ts` : l'analyse des liens est faite et testée. **`fetchDofusbookProfile()` est un stub qui lève une erreur**, donc on ne peut pas encore ajouter de perso sur cette branche.
 - UI vérifiée avec des données fictives : captures mobile et ordinateur OK. 8 tests unitaires.
 
+## Session 2 (1er octobre 2026)
+
+- **DofusBook est bloqué par Cloudflare depuis le conteneur cloud** : `dofusbook.net`, `www.dofusbook.net` et `www.d-bk.net` répondent 403 « Attention Required » (même avec un User-Agent de navigateur ou Chromium via Playwright). Seul `d-bk.net/fr/d/<id>` répond (301 vers dofusbook.net). L'import ne peut donc pas être inspecté ici : il faut une réponse JSON enregistrée par l'utilisateur (F12 → Réseau), ou tester l'app depuis le réseau de l'utilisateur.
+- DofusDB, DofusDude, dofuspourlesnoobs.com et static.ankama.com sont joignables.
+- **Assets officiels** : `scripts/fetch-assets.mjs` télécharge dans `public/game/` (versionné) les symboles des 19 classes (`api.dofusdb.fr/img/breeds/symbol_N.png`) et les icônes de caractéristiques (`dofusdb.fr/icons/characteristics/tx_*.png`). `src/lib/assets.ts` les expose (`classIcon`, `elementIcon`, `statIcon`) ; utilisés dans `Avatar`, `CharacterSheet`, `TeamTab`.
+- Icônes d'items et de sorts : `https://api.dofusdb.fr/img/items/<iconId>.png` et `.../img/spells/sort_<iconId>.png` (le champ `img` des réponses DofusDB). Pas d'icône pour les PV (`tx_lifePoints` n'existe pas).
+
 ## Prochaine tâche : brancher l'import DofusBook
 
 Lien d'exemple fourni par l'utilisateur : `https://www.dofusbook.net/mobile/fr/equipement/16088968-db/objets`
