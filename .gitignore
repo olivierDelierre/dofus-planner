@@ -1,0 +1,14 @@
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+.env
+.env.local
+
+# Données personnelles, secrets et cache d'API
+data/team.json
+data/profiles.json
+data/session-secret.key
+data/plans/
+data/cache/
