@@ -153,11 +153,13 @@ function describeTeam(team: Character[]): string {
     .map(({ profile: p, notes }) => {
       const stats = p.stats.map((s) => `${s.label} ${s.value}`).join(", ");
       const items = p.items.map((i) => `${i.slot} : ${i.name}${i.level ? ` (niv. ${i.level})` : ""}`).join(" ; ");
+      const sets = p.sets.map((x) => `${x.name} ${x.count}/${x.size}${x.bonus.length ? ` (${x.bonus.join(", ")})` : ""}`).join(" ; ");
       const spells = p.spells.map((s) => (s.level ? `${s.name} (niv. ${s.level})` : s.name)).join(", ");
       return [
         `- ${p.name} : ${p.className} niveau ${p.level}, éléments ${p.elements.join("/") || "non déterminés"}`,
         stats ? `  Caractéristiques : ${stats}` : null,
         items ? `  Équipement : ${items}` : null,
+        sets ? `  Panoplies : ${sets}` : null,
         spells ? `  Sorts : ${spells}` : null,
         notes ? `  Notes du joueur : ${notes}` : null,
       ]

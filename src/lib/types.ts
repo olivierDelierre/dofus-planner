@@ -79,6 +79,18 @@ export const ProfileSchema = z.object({
     }),
   ),
   stats: z.array(z.object({ key: z.string(), label: z.string(), value: z.union([z.number(), z.string()]) })),
+  /** Panoplies partiellement ou totalement portées, avec le bonus actif. */
+  sets: z
+    .array(
+      z.object({
+        id: z.number().int(),
+        name: z.string(),
+        count: z.number().int(),
+        size: z.number().int(),
+        bonus: z.array(z.string()),
+      }),
+    )
+    .default([]),
   spells: z.array(
     z.object({
       id: z.number().int(),

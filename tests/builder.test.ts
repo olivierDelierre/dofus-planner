@@ -30,3 +30,13 @@ test("éléments : ceux proches de la caractéristique la plus haute", () => {
   assert.deepEqual(computeStats(200, { ...base, force: 400, chance: 300, agilite: 100 }, []).elements, ["Terre", "Eau"]);
   assert.deepEqual(computeStats(200, base, []).elements, ["Neutre"]);
 });
+
+import { setBonusFor } from "../src/lib/gamedata";
+
+test("bonus de panoplie : entrée exacte, sinon la plus haute en dessous", () => {
+  const set = { bonuses: { 2: [{ label: "Force", value: 40, text: "40 Force" }], 4: [{ label: "PA", value: 1, text: "1 PA" }] } };
+  assert.deepEqual(setBonusFor(set, 1), []);
+  assert.equal(setBonusFor(set, 2)[0].label, "Force");
+  assert.equal(setBonusFor(set, 3)[0].label, "Force");
+  assert.equal(setBonusFor(set, 8)[0].label, "PA");
+});

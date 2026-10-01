@@ -33,10 +33,12 @@ Mets à jour ce fichier à la fin de chaque session : état, branches et prochai
 
 Fait sur `refonte-mobile-dofusbook` : `src/lib/builder.ts` (saisie → fiche, calcul des caractéristiques), routes `/api/game/{items,spells,breeds,preview}`, `/api/icon` (proxy d'images avec cache), `CharacterEditor` (classe, genre, niveau, points de base, équipement par emplacement, sorts avec niveaux, aperçu des stats), `Paperdoll` (équipement façon DofusBook), `CharacterSheet`. Interface mobile et PC (deux colonnes ≥ 1000 px). Anciens personnages mis de côté dans `data/team.legacy.json`.
 
+Panoplies (session 3) : `getSet()` dans `gamedata.ts` lit DofusDude `/sets/<id>` (bonus cumulés par nombre de pièces), mis en cache 60 jours sur disque ; `buildProfile` compte les pièces par panoplie, ajoute le bonus actif aux caractéristiques et remplit `profile.sets` (affiché par `SetsList`, transmis à Claude). Les fiches enregistrées avant cette version n'ont pas de panoplies : bouton « Actualiser » pour les recalculer.
+
 Limites connues / idées :
 - PA, PM et PV de base sont des estimations (PA 6, 7 dès le niveau 100 ; PM 3 ; PV 55 + 5/niveau) : à vérifier avec le jeu. Les bonus d'objets sont pris au jet maximum.
 - Pas de rendu en pied du personnage (le renderer d'Ankama ne gère pas les looks Dofus 3) : on affiche le symbole de classe et la tête.
-- Pas de contrôle que l'objet correspond bien à l'emplacement côté serveur (l'éditeur ne propose que les bons types) ; panoplies et bonus de panoplie non calculés ; familiers sans stats (absents de DofusDude).
+- Pas de contrôle que l'objet correspond bien à l'emplacement côté serveur (l'éditeur ne propose que les bons types) ; familiers sans stats (absents de DofusDude).
 - Fusionner `refonte-mobile-dofusbook` dans `main` après validation par l'utilisateur.
 
 ## Encore jamais testé en conditions réelles

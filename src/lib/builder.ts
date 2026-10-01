@@ -2,7 +2,7 @@
  * Construction d'une fiche de personnage à partir de la saisie (classe, niveau, points, objets, sorts).
  * Les noms, icônes et effets viennent des API du jeu ; les caractéristiques totales sont calculées ici.
  */
-import { getBreedSpells, getBreeds, getItemDetail } from "./gamedata";
+import { getBreedSpells, getBreeds, getItemDetail, getSet, setBonusFor } from "./gamedata";
 import { BASE_STATS, type BaseStat, type BuildInput, type CharacterProfile } from "./types";
 
 export interface Bonus {
@@ -123,6 +123,19 @@ export async function buildProfile(input: BuildInput): Promise<CharacterProfile>
       description: s.description,
     }));
 
+  // Panoplies : un bonus s'applique dès 2 pièces d'une même panoplie.
+  const perSet = new Map<number, number>();
+  for (const d of details) if (d?.setId) perSet.set(d.setId, (perSet.get(d.setId) ?? 0) + 1);
+  const sets: CharacterProfile["sets"] = [];
+  for (const [id, count] of perSet) {
+    const set = await getSet(id);
+    if (!set) continue;
+    const active = setBonusFor(set, count);
+    for (const b of active) bonuses.push({ label: b.label, value: b.value });
+    sets.push({ id, name: set.name, count, size: set.size, bonus: active.map((b) => b.text) });
+  }
+  sets.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "fr"));
+
   const { stats, elements } = computeStats(input.level, input.base, bonuses);
   return {
     name: input.name,
@@ -136,6 +149,7 @@ export async function buildProfile(input: BuildInput): Promise<CharacterProfile>
     elements,
     items,
     stats,
+    sets,
     spells,
   };
 }
