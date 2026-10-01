@@ -63,17 +63,60 @@ export async function searchSets(query: string, limit = 5): Promise<unknown> {
   return cachedFetchJson(`${DOFUSDUDE}/sets/search?${params}`);
 }
 
-function dofusdbSearch(resource: string, query: string, limit: number): Promise<unknown> {
-  const params = new URLSearchParams({
-    "name.fr[$search]": query,
-    $limit: String(limit),
-    lang: "fr",
-  });
+/** Recherche par nom sur DofusDB : `$search` est refusé (400) sur les noms, on passe par un `$regex` insensible à la casse. */
+async function dofusdbSearch(resource: string, query: string, limit: number): Promise<unknown> {
+  const params = new URLSearchParams({ "name.fr[$regex]": ciRegex(query), $limit: String(limit) });
+  // Donjons : on évite les centaines d'identifiants de cartes, inutiles pour la stratégie.
+  if (resource === "dungeons") {
+    for (const f of ["id", "name", "optimalPlayerLevel", "minLevel", "difficulty", "bosses", "monsters", "requiredObjects"]) {
+      params.append("$select[]", f);
+    }
+  }
   return cachedFetchJson(`${DOFUSDB}/${resource}?${params}`);
 }
 
-export function searchMonsters(query: string, limit = 5): Promise<unknown> {
-  return dofusdbSearch("monsters", query, limit);
+interface DbMonsterGrade {
+  grade: number;
+  level: number;
+  lifePoints: number;
+  actionPoints: number;
+  movementPoints: number;
+  paDodge: number;
+  pmDodge: number;
+  earthResistance: number;
+  fireResistance: number;
+  waterResistance: number;
+  airResistance: number;
+  neutralResistance: number;
+}
+
+/** Monstre allégé pour Claude : niveaux, PV, PA/PM, esquives et résistances (%) par grade. */
+export async function searchMonsters(query: string, limit = 5): Promise<unknown> {
+  const res = (await dofusdbSearch("monsters", query, limit)) as {
+    data?: { id: number; name: I18n; isBoss?: boolean; isMiniBoss?: boolean; grades?: DbMonsterGrade[] }[];
+  };
+  return (res.data ?? []).map((m) => ({
+    id: m.id,
+    nom: fr(m.name),
+    boss: m.isBoss || undefined,
+    miniBoss: m.isMiniBoss || undefined,
+    grades: (m.grades ?? []).map((g) => ({
+      grade: g.grade,
+      niveau: g.level,
+      pv: g.lifePoints,
+      pa: g.actionPoints,
+      pm: g.movementPoints,
+      esquivePA: g.paDodge,
+      esquivePM: g.pmDodge,
+      resistances: {
+        terre: g.earthResistance,
+        feu: g.fireResistance,
+        eau: g.waterResistance,
+        air: g.airResistance,
+        neutre: g.neutralResistance,
+      },
+    })),
+  }));
 }
 
 export function searchDungeons(query: string, limit = 5): Promise<unknown> {
