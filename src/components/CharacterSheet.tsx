@@ -63,6 +63,12 @@ export function CharacterSheet({ character, onClose, onChanged }: Props) {
   return (
     <div className="sheet-backdrop" onClick={onClose}>
       <div className="sheet" role="dialog" aria-modal="true" aria-label={p.name} onClick={(e) => e.stopPropagation()}>
+        <div className="sheet-title">
+          <span>Inventaire</span>
+          <button className="sheet-close" onClick={onClose} aria-label="Fermer">
+            ✕
+          </button>
+        </div>
         <div className="sheet-hero">
           <Avatar profile={p} size="lg" />
           <div style={{ minWidth: 0, flex: 1 }}>
@@ -80,9 +86,6 @@ export function CharacterSheet({ character, onClose, onChanged }: Props) {
               ))}
             </div>
           </div>
-          <button className="btn ghost small" onClick={onClose} aria-label="Fermer">
-            ✕
-          </button>
         </div>
 
         <div className="vitals">
@@ -119,12 +122,22 @@ export function CharacterSheet({ character, onClose, onChanged }: Props) {
           onSlot={(slot) => setDetail(detail === slot ? null : slot)}
         />
         {shownDetail && (
-          <div className="detail">
-            <strong>
-              {shownDetail.name}
-              {shownDetail.level ? ` · niv. ${shownDetail.level}` : ""}
-              {shownDetail.custom ? " · jets personnalisés" : ""}
-            </strong>
+          <div className="detail tooltip">
+            <div className="tip-head">
+              {shownDetail.icon && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={gameImage(shownDetail.icon)} alt="" />
+              )}
+              <div>
+                <strong>{shownDetail.name}</strong>
+                <div className="tip-sub">
+                  {shownDetail.level ? `Niveau ${shownDetail.level} · ` : ""}
+                  {shownDetail.slot}
+                  {shownDetail.custom ? " · jets personnalisés" : ""}
+                </div>
+              </div>
+            </div>
+            <div className="tip-title">Effets</div>
             <ul>
               {shownDetail.effects.map((e, i) => (
                 <li key={i}>

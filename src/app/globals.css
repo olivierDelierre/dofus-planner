@@ -1,45 +1,59 @@
 /* ---------- Thème ---------- */
+/* Palette inspirée de l'interface de Dofus 3 : ardoise indigo, valeurs vert lime, titres dorés. */
 :root,
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #0e1015;
-  --bg-glow: radial-gradient(1200px 500px at 50% -200px, rgba(240, 166, 58, 0.12), transparent 70%);
-  --surface: #161920;
-  --surface-2: #1d212a;
-  --border: #2a2f3a;
-  --text: #e9ebf1;
-  --muted: #98a1b1;
-  --accent: #f0a63a;
-  --accent-2: #e2703a;
-  --accent-text: #1a1206;
+  --bg: #14172a;
+  --bg-glow: radial-gradient(1100px 520px at 50% -180px, rgba(120, 100, 190, 0.22), transparent 70%),
+    radial-gradient(800px 400px at 100% 100%, rgba(60, 140, 130, 0.12), transparent 70%);
+  --surface: #262a45;
+  --surface-2: #1d2038;
+  --surface-3: #31365a;
+  --border: #3b4068;
+  --border-soft: #2f3457;
+  --text: #eceef8;
+  --muted: #9aa0c4;
+  --accent: #f0b43c;
+  --accent-2: #d9822b;
+  --accent-text: #20150a;
+  --value: #a6e35a;
+  --title: #cfe86a;
   --danger: #ff7b72;
-  --ok: #4fbf73;
+  --ok: #8fdc5a;
   --star: #f6c453;
-  --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  --shadow: 0 10px 30px rgba(6, 8, 24, 0.45);
+  --inset: inset 0 1px 0 rgba(255, 255, 255, 0.05), inset 0 0 0 1px rgba(8, 10, 30, 0.35);
+  --header: linear-gradient(180deg, #3d4268, #30355a);
 
-  --el-terre: #b98142;
-  --el-feu: #ec5b45;
-  --el-eau: #3d9be9;
-  --el-air: #4fbf73;
-  --el-neutre: #8d96a6;
+  --el-terre: #c99555;
+  --el-feu: #f26b4d;
+  --el-eau: #4aa8f0;
+  --el-air: #6fd07c;
+  --el-neutre: #9ba2bd;
 }
 
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #f4f2ee;
-  --bg-glow: radial-gradient(1200px 500px at 50% -200px, rgba(226, 112, 58, 0.12), transparent 70%);
+  --bg: #e9eaf3;
+  --bg-glow: radial-gradient(1100px 500px at 50% -200px, rgba(120, 100, 190, 0.14), transparent 70%);
   --surface: #ffffff;
-  --surface-2: #f6f4f0;
-  --border: #e2ddd3;
-  --text: #1d1b18;
-  --muted: #6c675e;
+  --surface-2: #f0f1f8;
+  --surface-3: #e3e5f1;
+  --border: #ced1e4;
+  --border-soft: #dcdeec;
+  --text: #1d2038;
+  --muted: #5f6590;
   --accent: #d9822b;
   --accent-2: #c95a2a;
   --accent-text: #ffffff;
+  --value: #3f8a12;
+  --title: #4d7d10;
   --danger: #c0362c;
   --ok: #2f8f50;
   --star: #d79b00;
-  --shadow: 0 8px 24px rgba(40, 30, 10, 0.08);
+  --shadow: 0 8px 24px rgba(30, 32, 70, 0.1);
+  --inset: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --header: linear-gradient(180deg, #e8eafa, #d9dcf0);
 }
 
 /* ---------- Base ---------- */
@@ -1584,4 +1598,372 @@ label.inline {
   width: 20px;
   height: 20px;
   margin-right: 8px;
+}
+
+/* =====================================================================
+   Habillage « Dofus 3 » : fenêtres à barre de titre, cases sombres,
+   valeurs vertes, infobulles d'objets.
+   ===================================================================== */
+body {
+  font-family: "Nunito", "Segoe UI", ui-rounded, system-ui, -apple-system, Roboto, sans-serif;
+}
+
+h2,
+.brand,
+.sheet-title {
+  letter-spacing: 0.01em;
+}
+
+h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 18px 0 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--surface-2) 80%, transparent);
+  border-radius: 8px;
+}
+
+.topbar {
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  border-bottom-color: var(--border-soft);
+}
+
+.brand-mark {
+  border-radius: 10px;
+  box-shadow: var(--inset), 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.tab[aria-selected="true"] {
+  color: var(--title);
+}
+
+@media (min-width: 760px) {
+  .tab[aria-selected="true"] {
+    background: var(--surface-3);
+    box-shadow: var(--inset);
+  }
+}
+
+.card {
+  border-radius: 14px;
+  border-color: var(--border-soft);
+  box-shadow: var(--shadow), var(--inset);
+}
+
+input,
+select,
+textarea {
+  background: var(--surface-2);
+  border-color: var(--border-soft);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+
+.btn {
+  background: var(--surface-3);
+  border-color: var(--border);
+  box-shadow: var(--inset);
+}
+
+.btn.primary {
+  box-shadow: var(--inset), 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.segmented,
+.seg {
+  border-color: var(--border-soft);
+}
+
+.segmented button[aria-pressed="true"] {
+  background: var(--surface-3);
+}
+
+.char-card,
+.chip,
+.set,
+.detail,
+.spell-icon,
+.class-opt {
+  border-color: var(--border-soft);
+  box-shadow: var(--inset);
+}
+
+/* Fenêtre : barre de titre comme l'inventaire du jeu. */
+.sheet {
+  padding-top: 0;
+  background: var(--surface);
+  border-color: var(--border);
+  overflow-x: hidden;
+}
+
+.sheet-title {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 -16px 12px;
+  padding: 12px 48px;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text);
+  background: var(--header);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.sheet-close {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.sheet-close:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+@media (min-width: 760px) {
+  .sheet {
+    padding-top: 0;
+    overflow: auto;
+  }
+  .sheet-title {
+    margin: 0 -24px 16px;
+  }
+}
+
+.sheet-hero h2 {
+  color: var(--title);
+}
+
+/* PA / PM / PV / PO. */
+.vital {
+  background: var(--surface-2);
+  border-color: var(--border-soft);
+  box-shadow: var(--inset);
+}
+
+.vital b {
+  color: var(--value);
+}
+
+/* Caractéristiques : une ligne par stat, icône + valeur verte + nom. */
+.stats {
+  grid-template-columns: 1fr;
+  gap: 0;
+  padding: 6px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  box-shadow: var(--inset);
+}
+
+.stat {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  font-size: 14px;
+}
+
+.stat + .stat {
+  border-top: 1px solid color-mix(in srgb, var(--border-soft) 55%, transparent);
+}
+
+.stat .ico {
+  margin: 0;
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+.stat .v {
+  min-width: 2.2ch;
+  color: var(--value);
+  font-weight: 800;
+}
+
+.stat .n {
+  color: var(--text);
+}
+
+.stat.key {
+  border: 0;
+}
+
+.stat.key + .stat:not(.key) {
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+@media (min-width: 1000px) {
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 28px;
+  }
+  .stat:nth-child(2) {
+    border-top: 0;
+  }
+}
+
+/* Effets : valeur verte puis nom. */
+.fx-val {
+  margin-right: 5px;
+  color: var(--value);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.detail li,
+.set li {
+  padding: 2px 0;
+}
+
+/* Inventaire : cases sombres sur fond de scène. */
+.doll {
+  border-radius: 14px;
+  border-color: var(--border);
+  background:
+    radial-gradient(60% 55% at 50% 38%, color-mix(in srgb, var(--surface-3) 90%, #5fd0b8 10%), transparent 80%),
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 70%, #2c6e68), var(--surface-2));
+  box-shadow: var(--inset);
+}
+
+.dslot {
+  border-radius: 8px;
+  border: 1px solid #0c0e22;
+  background: linear-gradient(180deg, #2d3254, #232846);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07), 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+:root[data-theme="light"] .dslot {
+  background: linear-gradient(180deg, #e9ebf7, #d9dcee);
+  border-color: var(--border);
+}
+
+.dslot:not(.filled) {
+  background: #1a1d36;
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.55);
+}
+
+:root[data-theme="light"] .dslot:not(.filled) {
+  background: #cfd2e6;
+}
+
+.dslot:not(:disabled):hover,
+.dslot.sel {
+  border-color: var(--title);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--title) 40%, transparent);
+}
+
+.dslot-wrap .dslot-empty {
+  color: color-mix(in srgb, var(--muted) 60%, transparent);
+}
+
+.doll-name {
+  color: var(--title);
+}
+
+.doll-dofus {
+  padding-top: 10px;
+  border-top: 1px solid var(--border-soft);
+}
+
+/* Infobulle d'objet : en-tête dégradé, section « Effets ». */
+.detail.tooltip {
+  padding: 0;
+  overflow: hidden;
+  background: var(--surface-2);
+  border-color: var(--border);
+  box-shadow: var(--shadow);
+}
+
+.tip-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: linear-gradient(110deg, color-mix(in srgb, var(--surface-3) 80%, #3f7f6c), var(--surface-2));
+}
+
+.tip-head img {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  object-fit: contain;
+}
+
+.tip-head strong {
+  font-size: 16px;
+}
+
+.tip-sub {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.tip-title {
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+}
+
+.detail.tooltip ul {
+  margin: 0;
+  padding: 8px 14px 12px;
+}
+
+/* Panoplies : titre vert, compteur doré. */
+.set {
+  background: var(--surface-2);
+}
+
+.set-head strong {
+  color: var(--title);
+}
+
+.set.on {
+  border-color: color-mix(in srgb, var(--title) 50%, var(--border));
+}
+
+/* Sorts. */
+.spell-icon {
+  border-radius: 8px;
+  background: linear-gradient(180deg, #2d3254, #232846);
+}
+
+:root[data-theme="light"] .spell-icon {
+  background: var(--surface-2);
+}
+
+.spell-icon b {
+  background: var(--accent);
+}
+
+.avatar {
+  border-radius: 12px;
+  box-shadow: var(--inset), 0 2px 6px rgba(0, 0, 0, 0.35);
 }

@@ -11,7 +11,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#0e1015",
+  themeColor: "#14172a",
 };
 
 // Applique le thème enregistré avant le premier rendu (sombre par défaut) pour éviter un flash.
