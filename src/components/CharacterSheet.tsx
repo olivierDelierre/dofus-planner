@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 import { elementIcon, gameImage } from "@/lib/assets";
 import { elementClass } from "@/lib/classes";
-import { type Character } from "@/lib/types";
+import { type Character, type Slot } from "@/lib/types";
 import { Avatar } from "./Avatar";
 import { CharacterEditor } from "./CharacterEditor";
 import { EffectText } from "./EffectText";
+import { ItemEffectsEditor } from "./ItemEffectsEditor";
+import { ItemPicker } from "./ItemPicker";
 import { Paperdoll } from "./Paperdoll";
 import { SetsList } from "./SetsList";
 import { StatsGrid } from "./StatsGrid";
@@ -21,13 +23,15 @@ interface Props {
 export function CharacterSheet({ character, onClose, onChanged }: Props) {
   const { profile: p } = character;
   const [notes, setNotes] = useState(character.notes ?? "");
-  const [busy, setBusy] = useState<null | "refresh" | "notes" | "delete">(null);
+  const [busy, setBusy] = useState<null | "refresh" | "notes" | "delete" | "item">(null);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [detail, setDetail] = useState<string | null>(null);
+  const [picking, setPicking] = useState<Slot | null>(null);
+  const [editingFx, setEditingFx] = useState<Slot | null>(null);
 
   useEffect(() => {
-    if (editing) return;
+    if (editing || picking || editingFx) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
@@ -35,7 +39,7 @@ export function CharacterSheet({ character, onClose, onChanged }: Props) {
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = "";
     };
-  }, [onClose, editing]);
+  }, [onClose, editing, picking, editingFx]);
 
   async function call(kind: NonNullable<typeof busy>, method: string, body?: unknown) {
     setBusy(kind);
@@ -54,6 +58,15 @@ export function CharacterSheet({ character, onClose, onChanged }: Props) {
     } finally {
       setBusy(null);
     }
+  }
+
+  /** Modifie un seul emplacement et enregistre tout de suite (la fiche est recalculée côté serveur). */
+  async function changeItem(slot: Slot, item: { itemId: number; effects?: { label: string; value: number }[] } | null) {
+    const items = character.build.items.filter((i) => i.slot !== slot);
+    if (item) items.push({ slot, itemId: item.itemId, ...(item.effects ? { effects: item.effects } : {}) });
+    await call("item", "PUT", { build: { ...character.build, items }, notes: character.notes });
+    setPicking(null);
+    setEditingFx(null);
   }
 
   const bySlot = new Map(p.items.map((i) => [i.slot, i]));
@@ -112,6 +125,7 @@ export function CharacterSheet({ character, onClose, onChanged }: Props) {
           <div>
         <h3>Équipement</h3>
         <Paperdoll
+          editable
           items={Object.fromEntries(p.items.map((i) => [i.slot, { name: i.name, icon: i.icon, level: i.level, custom: i.custom }]))}
           className={p.className}
           symbol={p.classImage}
@@ -119,7 +133,9 @@ export function CharacterSheet({ character, onClose, onChanged }: Props) {
           title={p.name}
           subtitle={`${p.className} · niv. ${p.level}`}
           selected={detail}
-          onSlot={(slot) => setDetail(detail === slot ? null : slot)}
+          onSlot={(slot) => (bySlot.has(slot) ? setDetail(detail === slot ? null : slot) : setPicking(slot))}
+          onEdit={setEditingFx}
+          onClear={(slot) => confirm(`Retirer ${bySlot.get(slot)?.name} ?`) && changeItem(slot, null)}
         />
         {shownDetail && (
           <div className="detail tooltip">
@@ -136,6 +152,21 @@ export function CharacterSheet({ character, onClose, onChanged }: Props) {
                   {shownDetail.custom ? " · jets personnalisés" : ""}
                 </div>
               </div>
+            </div>
+            <div className="tip-actions">
+              <button className="btn small" disabled={busy !== null} onClick={() => setPicking(shownDetail.slot as Slot)}>
+                Changer l&apos;objet
+              </button>
+              <button className="btn small" disabled={busy !== null} onClick={() => setEditingFx(shownDetail.slot as Slot)}>
+                ✎ Jets (FM, exo)
+              </button>
+              <button
+                className="btn ghost small"
+                disabled={busy !== null}
+                onClick={() => confirm(`Retirer ${shownDetail.name} ?`) && changeItem(shownDetail.slot as Slot, null)}
+              >
+                Retirer
+              </button>
             </div>
             <div className="tip-title">Effets</div>
             <ul>
@@ -237,6 +268,21 @@ export function CharacterSheet({ character, onClose, onChanged }: Props) {
         <p className="muted">
           Données du jeu via DofusDB et DofusDude{character.owner ? ` · créé par ${character.owner}` : ""}
         </p>
+      </div>
+      <div onClick={(e) => e.stopPropagation()}>
+      {editingFx && bySlot.get(editingFx) && (
+        <ItemEffectsEditor
+          itemId={bySlot.get(editingFx)!.itemId}
+          name={bySlot.get(editingFx)!.name}
+          icon={bySlot.get(editingFx)!.icon}
+          current={character.build.items.find((i) => i.slot === editingFx)?.effects}
+          onClose={() => setEditingFx(null)}
+          onSave={(effects) => changeItem(editingFx, { itemId: bySlot.get(editingFx)!.itemId, effects })}
+        />
+      )}
+      {picking && (
+        <ItemPicker slot={picking} maxLevel={p.level} onClose={() => setPicking(null)} onPick={(h) => changeItem(picking, { itemId: h.id })} />
+      )}
       </div>
       {editing && <CharacterEditor existing={character} onClose={() => setEditing(false)} onSaved={onChanged} />}
     </div>
